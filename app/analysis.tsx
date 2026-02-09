@@ -393,13 +393,11 @@ export default function AnalysisScreen() {
               return (
                 <View key={idx} style={styles.resultCard}>
                   <View style={styles.resultHeader}>
+                    <UniversityLogo name={r.universitas} size={56} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.resultPilihan}>Pilihan {r.pilihan}</Text>
                       <Text style={styles.resultProdi}>{r.programStudi}</Text>
-                      <View style={styles.resultPTNRow}>
-                        <UniversityLogo name={r.universitas} size={24} />
-                        <Text style={styles.resultPTN}>{r.universitas}</Text>
-                      </View>
+                      <Text style={styles.resultPTN}>{r.universitas}</Text>
                     </View>
                     <PeluangBadge peluang={r.peluang} persentase={r.persentase} />
                   </View>
@@ -481,11 +479,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white, borderRadius: 16, padding: 20, marginBottom: 16,
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
   },
-  resultHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
+  resultHeader: { flexDirection: "row", alignItems: "flex-start", gap: 14, marginBottom: 20 },
   resultPilihan: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.textMuted, marginBottom: 4 },
   resultProdi: { fontSize: 17, fontFamily: "Inter_700Bold", color: Colors.text, marginBottom: 2 },
-  resultPTNRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
-  resultPTN: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary, flex: 1 },
+  resultPTN: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 2 },
   mismatchBanner: {
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: Colors.warningLight, borderRadius: 8,
