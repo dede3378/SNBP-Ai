@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -179,9 +179,13 @@ function UniversityLogo({ name, size = 36 }: { name: string; size?: number }) {
   );
 }
 
+const PRINT_SCALES = [70, 80, 90, 100, 110, 120];
+
 export default function AnalysisScreen() {
   const insets = useSafeAreaInsets();
   const { selections, averageGrade, achievements, studentData, grades } = useConsultation();
+  const { getLogoUrl } = useUniversityLogos();
+  const [printScale, setPrintScale] = useState(100);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
 
@@ -206,19 +210,6 @@ export default function AnalysisScreen() {
   };
 
   const generateHTML = () => {
-    const gradesRows = grades.map((g, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${g.mataPelajaran}</td>
-        <td>${g.semester1 || '-'}</td>
-        <td>${g.semester2 || '-'}</td>
-        <td>${g.semester3 || '-'}</td>
-        <td>${g.semester4 || '-'}</td>
-        <td>${g.semester5 || '-'}</td>
-        <td><strong>${getRowAvg(g)}</strong></td>
-      </tr>
-    `).join("");
-
     const achievementsRows = achievements.map((a, i) => `
       <tr>
         <td>${i + 1}</td>
@@ -231,14 +222,28 @@ export default function AnalysisScreen() {
     const analysisCards = results.map((r, idx) => {
       if (!r) return "";
       const color = r.peluang === "Tinggi" ? "#10B981" : r.peluang === "Sedang" ? "#F59E0B" : "#EF4444";
+      const bgColor = r.peluang === "Tinggi" ? "#ECFDF5" : r.peluang === "Sedang" ? "#FFFBEB" : "#FEF2F2";
+      const logoUrl = getLogoUrl(r.universitas);
+      const logoHtml = logoUrl
+        ? `<img src="${logoUrl}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
+        : `<div style="width:64px;height:64px;border-radius:50%;background:#E0F2FE;display:flex;align-items:center;justify-content:center;font-size:24px;color:#0EA5E9;flex-shrink:0;">&#127979;</div>`;
       const mismatchHtml = r.jurusanMismatch
-        ? `<p style="background:#FEF3C7;color:#D97706;padding:6px 10px;border-radius:6px;font-size:11px;margin:8px 0;">Lintas Jurusan: Persentase dikurangi 13%</p>`
+        ? `<p style="background:#FEF3C7;color:#D97706;padding:6px 10px;border-radius:6px;font-size:11px;margin:8px 0 0 0;">Lintas Jurusan: Persentase dikurangi 13%</p>`
         : "";
       return `
-        <div style="border:2px solid ${color};border-radius:12px;padding:16px;margin-bottom:16px;">
-          <h3 style="color:${color};margin:0 0 8px 0;">Pilihan ${r.pilihan}: ${r.peluang} (${r.persentase}%)</h3>
-          <p style="margin:4px 0;"><strong>Universitas:</strong> ${r.universitas}</p>
-          <p style="margin:4px 0;"><strong>Program Studi:</strong> ${r.programStudi}</p>
+        <div style="border:2px solid ${color};border-radius:12px;padding:16px;margin-bottom:16px;background:${bgColor};">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+            ${logoHtml}
+            <div style="flex:1;">
+              <div style="font-size:11px;color:#6B7280;margin-bottom:2px;">Pilihan ${r.pilihan}</div>
+              <div style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:2px;">${r.programStudi}</div>
+              <div style="font-size:13px;color:#6B7280;">${r.universitas}</div>
+            </div>
+            <div style="text-align:center;background:${color};color:white;border-radius:10px;padding:8px 12px;min-width:70px;">
+              <div style="font-size:18px;font-weight:700;">${r.persentase}%</div>
+              <div style="font-size:10px;">${r.peluang}</div>
+            </div>
+          </div>
           ${mismatchHtml}
           <table style="width:100%;margin-top:10px;font-size:12px;">
             <tr><td>Skor Nilai Rapor</td><td style="text-align:right;">${r.details.nilaiScore}/30</td></tr>
@@ -251,20 +256,22 @@ export default function AnalysisScreen() {
       `;
     }).join("");
 
+    const scaleFactor = printScale / 100;
+
     return `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 24px; color: #1A1A2E; font-size: 13px; }
-          h1 { text-align: center; color: #0EA5E9; font-size: 18px; margin-bottom: 4px; }
-          h2 { color: #0EA5E9; font-size: 15px; border-bottom: 2px solid #0EA5E9; padding-bottom: 4px; margin-top: 20px; }
-          .subtitle { text-align: center; color: #6B7280; font-size: 12px; margin-bottom: 20px; }
+          body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 24px; color: #1A1A2E; font-size: ${13 * scaleFactor}px; }
+          h1 { text-align: center; color: #0EA5E9; font-size: ${18 * scaleFactor}px; margin-bottom: 4px; }
+          h2 { color: #0EA5E9; font-size: ${15 * scaleFactor}px; border-bottom: 2px solid #0EA5E9; padding-bottom: 4px; margin-top: 20px; }
+          .subtitle { text-align: center; color: #6B7280; font-size: ${12 * scaleFactor}px; margin-bottom: 20px; }
           table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-          th, td { border: 1px solid #E5E7EB; padding: 6px 8px; text-align: left; font-size: 12px; }
+          th, td { border: 1px solid #E5E7EB; padding: ${6 * scaleFactor}px ${8 * scaleFactor}px; text-align: left; font-size: ${12 * scaleFactor}px; }
           th { background-color: #0EA5E9; color: white; }
-          .info-table td { border: none; padding: 4px 8px; }
+          .info-table td { border: none; padding: ${4 * scaleFactor}px ${8 * scaleFactor}px; }
           .info-table td:first-child { font-weight: 600; width: 40%; color: #6B7280; }
         </style>
       </head>
@@ -279,14 +286,7 @@ export default function AnalysisScreen() {
           <tr><td>Akreditasi</td><td>${studentData.akreditasi || '-'}</td></tr>
           <tr><td>Tipe Sekolah</td><td>${studentData.tipeSekolah || '-'}</td></tr>
           <tr><td>Jurusan</td><td>${studentData.jurusanSekolah || '-'}</td></tr>
-        </table>
-
-        <h2>Nilai Rapor (Rata-rata: ${averageGrade.toFixed(2)})</h2>
-        <table>
-          <thead>
-            <tr><th>No</th><th>Mata Pelajaran</th><th>Sem 1</th><th>Sem 2</th><th>Sem 3</th><th>Sem 4</th><th>Sem 5</th><th>Avg</th></tr>
-          </thead>
-          <tbody>${gradesRows || '<tr><td colspan="8" style="text-align:center;">Belum ada data</td></tr>'}</tbody>
+          <tr><td>Rata-rata Rapor</td><td><strong>${averageGrade.toFixed(2)}</strong></td></tr>
         </table>
 
         <h2>Prestasi</h2>
@@ -298,7 +298,7 @@ export default function AnalysisScreen() {
         <h2>Analisis Peluang SNBP</h2>
         ${analysisCards || '<p>Belum ada pilihan jurusan</p>'}
 
-        <p style="text-align:center;color:#9CA3AF;font-size:10px;margin-top:30px;">
+        <p style="text-align:center;color:#9CA3AF;font-size:${10 * scaleFactor}px;margin-top:30px;">
           Dokumen ini digenerate oleh Aplikasi Konsultasi SNBP - Bimbel Attin<br/>
           Tanggal: ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
         </p>
@@ -359,7 +359,7 @@ export default function AnalysisScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + webBottomInset + 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + webBottomInset + 140 }]}
         showsVerticalScrollIndicator={false}
       >
         {!hasResults ? (
@@ -427,20 +427,35 @@ export default function AnalysisScreen() {
 
       {hasResults && (
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + webBottomInset + 12 }]}>
-          <Pressable
-            style={({ pressed }) => [styles.exportBtn, styles.printBtn, pressed && { opacity: 0.9 }]}
-            onPress={handlePrint}
-          >
-            <Feather name="printer" size={18} color={Colors.primary} />
-            <Text style={styles.printBtnText}>Print</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.exportBtn, styles.pdfBtn, pressed && { opacity: 0.9 }]}
-            onPress={handleExportPDF}
-          >
-            <Feather name="download" size={18} color={Colors.white} />
-            <Text style={styles.pdfBtnText}>Export PDF</Text>
-          </Pressable>
+          <View style={styles.scaleRow}>
+            <Feather name="zoom-in" size={14} color={Colors.textSecondary} />
+            <Text style={styles.scaleLabel}>Ukuran:</Text>
+            {PRINT_SCALES.map(s => (
+              <Pressable
+                key={s}
+                style={[styles.scaleChip, printScale === s && styles.scaleChipActive]}
+                onPress={() => setPrintScale(s)}
+              >
+                <Text style={[styles.scaleChipText, printScale === s && styles.scaleChipTextActive]}>{s}%</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.btnRow}>
+            <Pressable
+              style={({ pressed }) => [styles.exportBtn, styles.printBtn, pressed && { opacity: 0.9 }]}
+              onPress={handlePrint}
+            >
+              <Feather name="printer" size={18} color={Colors.primary} />
+              <Text style={styles.printBtnText}>Print</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.exportBtn, styles.pdfBtn, pressed && { opacity: 0.9 }]}
+              onPress={handleExportPDF}
+            >
+              <Feather name="download" size={18} color={Colors.white} />
+              <Text style={styles.pdfBtnText}>Export PDF</Text>
+            </Pressable>
+          </View>
         </View>
       )}
     </View>
@@ -499,9 +514,21 @@ const styles = StyleSheet.create({
   scoreValue: { width: 40, fontSize: 11, fontFamily: "Inter_600SemiBold", color: Colors.text, textAlign: "right" },
   bottomBar: {
     position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: Colors.white,
-    borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingHorizontal: 20, paddingTop: 12,
-    flexDirection: "row", gap: 10,
+    borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingHorizontal: 16, paddingTop: 10,
+    gap: 8,
   },
+  scaleRow: {
+    flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap",
+  },
+  scaleLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.textSecondary },
+  scaleChip: {
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
+    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
+  },
+  scaleChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  scaleChipText: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.textSecondary },
+  scaleChipTextActive: { color: Colors.white },
+  btnRow: { flexDirection: "row", gap: 10 },
   exportBtn: {
     flex: 1, flexDirection: "row", borderRadius: 12, paddingVertical: 14,
     alignItems: "center", justifyContent: "center", gap: 8,
