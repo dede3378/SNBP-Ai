@@ -19,11 +19,21 @@ import Colors from "@/constants/colors";
 import { useConsultation, AnalysisResult, JurusanSelection, GradeEntry, Achievement } from "@/lib/consultation-context";
 import { useUniversityLogos } from "@/lib/university-logos";
 
+function isJurusanMismatch(studentJurusan: string, prodiJurusan: string): boolean {
+  if (!studentJurusan || !prodiJurusan) return false;
+  const sj = studentJurusan.toLowerCase();
+  const dj = prodiJurusan.toLowerCase();
+  if (sj === "campuran" || dj === "campuran") return false;
+  const studentBase = sj.split("/")[0];
+  return !dj.includes(studentBase);
+}
+
 function calculateChance(
   selection: JurusanSelection,
   avgGrade: number,
   achievements: Achievement[],
   akreditasi: string,
+  studentJurusan: string,
 ): AnalysisResult {
   const data = selection.programStudiData;
   if (!data) {
@@ -33,6 +43,7 @@ function calculateChance(
       programStudi: selection.programStudi,
       peluang: "Rendah",
       persentase: 0,
+      jurusanMismatch: false,
       details: { nilaiScore: 0, dayaTampungScore: 0, peminatScore: 0, prestasiScore: 0, akreditasiScore: 0 },
     };
   }
@@ -97,7 +108,12 @@ function calculateChance(
 
   const totalScore = nilaiScore + dayaTampungScore + peminatScore + prestasiScore + akreditasiScore;
   const maxScore = 100;
-  const percentage = Math.min(Math.round((totalScore / maxScore) * 100), 99);
+  let percentage = Math.min(Math.round((totalScore / maxScore) * 100), 99);
+
+  const mismatch = isJurusanMismatch(studentJurusan, data.jurusanSekolah);
+  if (mismatch) {
+    percentage = Math.max(0, Math.round(percentage * 0.87));
+  }
 
   let category = "Rendah";
   if (percentage >= 70) category = "Tinggi";
@@ -109,6 +125,7 @@ function calculateChance(
     programStudi: selection.programStudi,
     peluang: category,
     persentase: percentage,
+    jurusanMismatch: mismatch,
     details: {
       nilaiScore,
       dayaTampungScore,
@@ -172,13 +189,13 @@ export default function AnalysisScreen() {
     const res: (AnalysisResult | null)[] = [null, null];
     selections.forEach((sel, idx) => {
       if (sel?.programStudi && sel.programStudiData) {
-        const r = calculateChance(sel, averageGrade, achievements, studentData.akreditasi);
+        const r = calculateChance(sel, averageGrade, achievements, studentData.akreditasi, studentData.jurusanSekolah);
         r.pilihan = idx + 1;
         res[idx] = r;
       }
     });
     return res;
-  }, [selections, averageGrade, achievements, studentData.akreditasi]);
+  }, [selections, averageGrade, achievements, studentData.akreditasi, studentData.jurusanSekolah]);
 
   const hasResults = results[0] || results[1];
 
@@ -214,11 +231,15 @@ export default function AnalysisScreen() {
     const analysisCards = results.map((r, idx) => {
       if (!r) return "";
       const color = r.peluang === "Tinggi" ? "#10B981" : r.peluang === "Sedang" ? "#F59E0B" : "#EF4444";
+      const mismatchHtml = r.jurusanMismatch
+        ? `<p style="background:#FEF3C7;color:#D97706;padding:6px 10px;border-radius:6px;font-size:11px;margin:8px 0;">Lintas Jurusan: Persentase dikurangi 13%</p>`
+        : "";
       return `
         <div style="border:2px solid ${color};border-radius:12px;padding:16px;margin-bottom:16px;">
           <h3 style="color:${color};margin:0 0 8px 0;">Pilihan ${r.pilihan}: ${r.peluang} (${r.persentase}%)</h3>
           <p style="margin:4px 0;"><strong>Universitas:</strong> ${r.universitas}</p>
           <p style="margin:4px 0;"><strong>Program Studi:</strong> ${r.programStudi}</p>
+          ${mismatchHtml}
           <table style="width:100%;margin-top:10px;font-size:12px;">
             <tr><td>Skor Nilai Rapor</td><td style="text-align:right;">${r.details.nilaiScore}/30</td></tr>
             <tr><td>Skor Daya Tampung</td><td style="text-align:right;">${r.details.dayaTampungScore}/15</td></tr>
@@ -383,6 +404,15 @@ export default function AnalysisScreen() {
                     <PeluangBadge peluang={r.peluang} persentase={r.persentase} />
                   </View>
 
+                  {r.jurusanMismatch && (
+                    <View style={styles.mismatchBanner}>
+                      <Ionicons name="warning" size={16} color={Colors.warning} />
+                      <Text style={styles.mismatchBannerText}>
+                        Lintas Jurusan: Persentase dikurangi 13%
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={styles.scoresSection}>
                     {renderScoreBar("Nilai Rapor", r.details.nilaiScore, 30, Colors.primary)}
                     {renderScoreBar("Daya Tampung", r.details.dayaTampungScore, 15, Colors.secondary)}
@@ -456,6 +486,14 @@ const styles = StyleSheet.create({
   resultProdi: { fontSize: 17, fontFamily: "Inter_700Bold", color: Colors.text, marginBottom: 2 },
   resultPTNRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
   resultPTN: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary, flex: 1 },
+  mismatchBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: Colors.warningLight, borderRadius: 8,
+    padding: 10, marginBottom: 14,
+  },
+  mismatchBannerText: {
+    fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.warning, flex: 1,
+  },
   scoresSection: { gap: 10 },
   scoreRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   scoreLabel: { width: 90, fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary },
