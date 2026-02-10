@@ -112,7 +112,7 @@ function calculateChance(
 
   const mismatch = isJurusanMismatch(studentJurusan, data.jurusanSekolah);
   if (mismatch) {
-    percentage = Math.max(0, Math.round(percentage * 0.87));
+    percentage = Math.max(0, percentage - 13);
   }
 
   let category = "Rendah";

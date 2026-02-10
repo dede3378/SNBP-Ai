@@ -1,8 +1,42 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import * as XLSX from "xlsx";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const { message, context } = req.body;
+      if (!genAI) {
+        return res.json({ reply: "Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong)." });
+      }
+
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const prompt = `Anda adalah asisten ahli konsultasi SNBP (Seleksi Nasional Berdasarkan Prestasi) untuk Bimbel Attin.
+      Gunakan data berikut untuk memberikan saran yang personal dan akurat:
+      Nama: ${context.studentData.nama}
+      Sekolah: ${context.studentData.asalSekolah} (Akreditasi: ${context.studentData.akreditasi})
+      Jurusan Sekolah: ${context.studentData.jurusanSekolah}
+      Rata-rata Nilai: ${context.averageGrade}
+      Pilihan Jurusan: ${JSON.stringify(context.selections)}
+
+      Aturan:
+      1. Jika lintas jurusan, ingatkan ada pengurangan poin 13%.
+      2. Berikan saran realistis berdasarkan nilai.
+      3. Gunakan bahasa Indonesia yang santun dan memotivasi.
+      4. Jawab pertanyaan user: ${message}`;
+
+      const result = await model.generateContent(prompt);
+      const reply = result.response.text();
+      res.json({ reply });
+    } catch (error) {
+      console.error("AI Error:", error);
+      res.status(500).json({ reply: "Maaf, asisten AI sedang sibuk." });
+    }
+  });
+
   app.post("/api/upload-excel", (req, res) => {
     try {
       const { data, filename } = req.body;

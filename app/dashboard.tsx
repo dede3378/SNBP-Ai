@@ -172,11 +172,11 @@ export default function DashboardScreen() {
         />
 
         <MenuItem
-          icon={<Feather name="bar-chart-2" size={24} color="#8B5CF6" />}
-          title="5. Analisis Peluang"
-          desc="Lihat hasil analisis SNBP"
-          color="#8B5CF6"
-          onPress={() => router.push("/analysis")}
+          icon={<Ionicons name="chatbubbles-outline" size={24} color="#EC4899" />}
+          title="Konsultasi AI"
+          desc="Tanya asisten AI Bimbel Attin"
+          color="#EC4899"
+          onPress={() => router.push("/consultation")}
         />
 
         <Pressable
