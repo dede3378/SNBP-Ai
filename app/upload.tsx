@@ -104,6 +104,7 @@ export default function UploadScreen() {
       const apiUrl = getApiUrl();
       const url = new URL("/api/upload-excel", apiUrl);
 
+      // Use a more efficient way to send data if possible, but keeping compatibility
       const res = await fetch(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },

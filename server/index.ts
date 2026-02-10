@@ -84,11 +84,16 @@ function setupRequestLogging(app: express.Application) {
 
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        const stringified = JSON.stringify(capturedJsonResponse);
+        if (stringified.length > 500) {
+          logLine += ` :: ${stringified.slice(0, 500)}… [truncated]`;
+        } else {
+          logLine += ` :: ${stringified}`;
+        }
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+      if (logLine.length > 800) {
+        logLine = logLine.slice(0, 799) + "…";
       }
 
       log(logLine);

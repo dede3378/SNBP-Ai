@@ -83,18 +83,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const passingGradeKey = findKey("PASSINGGRADE") || findKey("PASSING GRADE");
 
-      const parsed = jsonData.map((row, idx) => ({
-        id: `prodi_${idx}_${Date.now()}`,
-        programStudi: String(row[colMap["PROGRAM STUDI"]!] || "").trim(),
-        universitas: String(row[colMap["UNIVERSITAS"]!] || "").trim(),
-        tingkat: String(row[colMap["TINGKAT"]!] || "").trim(),
-        jurusanSekolah: String(row[colMap["JURUSAN DI SEKOLAH"]!] || "").trim(),
-        dayaTampungSekarang: Number(row[colMap["DAYA TAMPUNG SEKARANG"]!]) || 0,
-        dayaTampungSebelumnya: Number(row[colMap["DAYA TAMPUNG SEBELUMNYA"]!]) || 0,
-        peminatSebelumnya: Number(row[colMap["PEMINAT SEBELUMNYA"]!]) || 0,
-        nilai: Math.round((Number(row[colMap["NILAI"]!]) || 0) * 100) / 100,
-        passingGrade: passingGradeKey ? (Number(row[passingGradeKey]) || 0) : 0,
-      })).filter(item => item.programStudi && item.universitas);
+      const parsed = [];
+      const len = jsonData.length;
+      const prodiCol = colMap["PROGRAM STUDI"]!;
+      const univCol = colMap["UNIVERSITAS"]!;
+      const tingkatCol = colMap["TINGKAT"]!;
+      const jurusanCol = colMap["JURUSAN DI SEKOLAH"]!;
+      const dtNowCol = colMap["DAYA TAMPUNG SEKARANG"]!;
+      const dtPrevCol = colMap["DAYA TAMPUNG SEBELUMNYA"]!;
+      const peminatCol = colMap["PEMINAT SEBELUMNYA"]!;
+      const nilaiCol = colMap["NILAI"]!;
+      const now = Date.now();
+
+      for (let i = 0; i < len; i++) {
+        const row = jsonData[i];
+        const programStudi = String(row[prodiCol] || "").trim();
+        const universitas = String(row[univCol] || "").trim();
+
+        if (programStudi && universitas) {
+          parsed.push({
+            id: `prodi_${i}_${now}`,
+            programStudi,
+            universitas,
+            tingkat: String(row[tingkatCol] || "").trim(),
+            jurusanSekolah: String(row[jurusanCol] || "").trim(),
+            dayaTampungSekarang: Number(row[dtNowCol]) || 0,
+            dayaTampungSebelumnya: Number(row[dtPrevCol]) || 0,
+            peminatSebelumnya: Number(row[peminatCol]) || 0,
+            nilai: Math.round((Number(row[nilaiCol]) || 0) * 100) / 100,
+            passingGrade: passingGradeKey ? (Number(row[passingGradeKey]) || 0) : 0,
+          });
+        }
+      }
 
       console.log(`Parsed ${parsed.length} program studi from ${filename}`);
 
