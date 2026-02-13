@@ -27,9 +27,15 @@ interface MenuItemProps {
 function MenuItem({ icon, title, desc, color, onPress, badge }: MenuItemProps) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+      style={({ pressed }) => [
+        styles.menuItem,
+        pressed && styles.menuItemPressed,
+        Platform.OS === 'web' && { cursor: 'pointer' }
+      ]}
       onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         onPress();
       }}
     >
@@ -53,9 +59,10 @@ function MenuItem({ icon, title, desc, color, onPress, badge }: MenuItemProps) {
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const { logout, masterData, studentData, grades, achievements, resetConsultation } = useConsultation();
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
-  const webBottomInset = Platform.OS === "web" ? 34 : 0;
+  const webTopInset = Platform.OS === "web" ? 20 : 0;
+  const webBottomInset = Platform.OS === "web" ? 20 : 0;
 
+  const isDesktop = Platform.OS === 'web' && typeof window !== 'undefined' && window.innerWidth > 768;
   const handleLogout = () => {
     if (Platform.OS === "web") {
       logout();
@@ -99,17 +106,26 @@ export default function DashboardScreen() {
           <Text style={styles.greeting}>Konsultasi SNBP</Text>
           <Text style={styles.subGreeting}>Bimbel Attin</Text>
         </View>
-        <Pressable onPress={handleLogout} style={styles.logoutBtn}>
-          <Ionicons name="log-out-outline" size={22} color={Colors.danger} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable onPress={handleReset} style={[styles.logoutBtn, { backgroundColor: Colors.warningLight }]}>
+            <Feather name="refresh-cw" size={20} color={Colors.warning} />
+          </Pressable>
+          <Pressable onPress={handleLogout} style={styles.logoutBtn}>
+            <Ionicons name="log-out-outline" size={22} color={Colors.danger} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + webBottomInset + 20 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + webBottomInset + 20 },
+          isDesktop && styles.desktopGrid
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.statsRow}>
+        <View style={[styles.statsRow, isDesktop && styles.desktopFullWidth]}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{masterData.length}</Text>
             <Text style={styles.statLabel}>Program Studi</Text>
@@ -124,68 +140,83 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Data Master</Text>
-        <MenuItem
-          icon={<MaterialCommunityIcons name="file-upload-outline" size={24} color={Colors.info} />}
-          title="Upload Data Program Studi"
-          desc="Upload file Excel data master"
-          color={Colors.info}
-          onPress={() => router.push("/upload")}
-          badge={masterData.length > 0 ? `${masterData.length}` : undefined}
-        />
+        <View style={isDesktop ? styles.gridContainer : null}>
+          <View style={isDesktop ? styles.gridItem : null}>
+            <Text style={styles.sectionTitle}>Data Master</Text>
+            <MenuItem
+              icon={<MaterialCommunityIcons name="file-upload-outline" size={24} color={Colors.info} />}
+              title="Upload Data Master"
+              desc="Upload file Excel Program Studi & Passing Grade"
+              color={Colors.info}
+              onPress={() => router.push("/upload")}
+              badge={masterData.length > 0 ? `${masterData.length}` : undefined}
+            />
+          </View>
 
-        <Text style={styles.sectionTitle}>Langkah Konsultasi</Text>
+          <View style={isDesktop ? styles.gridItem : null}>
+            <Text style={styles.sectionTitle}>Langkah Konsultasi</Text>
+            <MenuItem
+              icon={<Ionicons name="person-outline" size={24} color={Colors.primary} />}
+              title="1. Data Siswa"
+              desc="Input data diri siswa"
+              color={Colors.primary}
+              onPress={() => router.push("/student")}
+              badge={hasStudentData ? "OK" : undefined}
+            />
+          </View>
 
-        <MenuItem
-          icon={<Ionicons name="person-outline" size={24} color={Colors.primary} />}
-          title="1. Data Siswa"
-          desc="Input data diri siswa"
-          color={Colors.primary}
-          onPress={() => router.push("/student")}
-          badge={hasStudentData ? "OK" : undefined}
-        />
+          <View style={isDesktop ? styles.gridItem : null}>
+            <MenuItem
+              icon={<MaterialCommunityIcons name="book-open-page-variant-outline" size={24} color={Colors.secondary} />}
+              title="2. Nilai Rapor"
+              desc="Input nilai semester 1-5"
+              color="#62B6CB"
+              onPress={() => router.push("/grades")}
+              badge={grades.length > 0 ? `${grades.length}` : undefined}
+            />
+          </View>
 
-        <MenuItem
-          icon={<MaterialCommunityIcons name="book-open-page-variant-outline" size={24} color={Colors.secondary} />}
-          title="2. Nilai Rapor"
-          desc="Input nilai semester 1-5"
-          color="#62B6CB"
-          onPress={() => router.push("/grades")}
-          badge={grades.length > 0 ? `${grades.length}` : undefined}
-        />
+          <View style={isDesktop ? styles.gridItem : null}>
+            <MenuItem
+              icon={<Ionicons name="trophy-outline" size={24} color={Colors.warning} />}
+              title="3. Prestasi"
+              desc="Input prestasi siswa"
+              color={Colors.warning}
+              onPress={() => router.push("/achievements")}
+              badge={achievements.length > 0 ? `${achievements.length}` : undefined}
+            />
+          </View>
 
-        <MenuItem
-          icon={<Ionicons name="trophy-outline" size={24} color={Colors.warning} />}
-          title="3. Prestasi"
-          desc="Input prestasi siswa"
-          color={Colors.warning}
-          onPress={() => router.push("/achievements")}
-          badge={achievements.length > 0 ? `${achievements.length}` : undefined}
-        />
+          <View style={isDesktop ? styles.gridItem : null}>
+            <MenuItem
+              icon={<Ionicons name="school-outline" size={24} color={Colors.success} />}
+              title="4. Pilih Jurusan"
+              desc="Pilih PTN dan program studi"
+              color={Colors.success}
+              onPress={() => router.push("/selection")}
+            />
+          </View>
 
-        <MenuItem
-          icon={<Ionicons name="school-outline" size={24} color={Colors.success} />}
-          title="4. Pilih Jurusan"
-          desc="Pilih PTN dan program studi"
-          color={Colors.success}
-          onPress={() => router.push("/selection")}
-        />
+          <View style={isDesktop ? styles.gridItem : null}>
+            <MenuItem
+              icon={<Feather name="bar-chart-2" size={24} color="#8B5CF6" />}
+              title="5. Analisis Peluang"
+              desc="Lihat hasil analisis SNBP"
+              color="#8B5CF6"
+              onPress={() => router.push("/analysis")}
+            />
+          </View>
 
-        <MenuItem
-          icon={<Ionicons name="chatbubbles-outline" size={24} color="#EC4899" />}
-          title="Konsultasi AI"
-          desc="Tanya asisten AI Bimbel Attin"
-          color="#EC4899"
-          onPress={() => router.push("/consultation")}
-        />
-
-        <Pressable
-          style={({ pressed }) => [styles.resetBtn, pressed && { opacity: 0.7 }]}
-          onPress={handleReset}
-        >
-          <Feather name="refresh-cw" size={16} color={Colors.danger} />
-          <Text style={styles.resetText}>Reset Data Konsultasi</Text>
-        </Pressable>
+          <View style={isDesktop ? styles.gridItem : null}>
+            <MenuItem
+              icon={<Ionicons name="chatbubbles-outline" size={24} color="#EC4899" />}
+              title="Konsultasi AI"
+              desc="Tanya asisten AI Bimbel Attin"
+              color="#EC4899"
+              onPress={() => router.push("/consultation")}
+            />
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -229,6 +260,23 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
+  },
+  desktopGrid: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -10,
+  },
+  gridItem: {
+    width: '50%',
+    paddingHorizontal: 10,
+  },
+  desktopFullWidth: {
+    width: '100%',
   },
   statsRow: {
     flexDirection: "row",

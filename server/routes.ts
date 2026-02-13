@@ -82,7 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const passingGradeKey = findKey("PASSINGGRADE") || findKey("PASSING GRADE") || findKey("PASSING_GRADE");
+      const passingGradeKey = findKey("PASSINGGRADE") || findKey("PASSING GRADE") || findKey("PASSING_GRADE") || findKey("PG");
 
       const parsed = [];
       const len = jsonData.length;
@@ -105,9 +105,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Robust number parsing
           const parseNum = (val: any) => {
             if (typeof val === 'number') return val;
-            if (!val) return 0;
-            const cleaned = String(val).replace(/[^0-9.,]/g, '').replace(',', '.');
-            return parseFloat(cleaned) || 0;
+            if (val === undefined || val === null || val === '') return 0;
+            // Handle percentages like "85%" or formatted strings
+            const cleaned = String(val).replace(/%/g, '').replace(/[^0-9.,-]/g, '').replace(',', '.');
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
           };
 
           parsed.push({
