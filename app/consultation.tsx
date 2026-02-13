@@ -59,6 +59,10 @@ export default function ConsultationScreen() {
             studentData,
             averageGrade,
             selections: selections.filter(s => s?.programStudi),
+            passingGrades: selections.filter(s => s?.programStudi).map(s => ({
+              prodi: s.programStudi,
+              pg: s.passingGrade
+            }))
           },
         }),
       });

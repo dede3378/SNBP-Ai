@@ -20,13 +20,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       Sekolah: ${context.studentData.asalSekolah} (Akreditasi: ${context.studentData.akreditasi})
       Jurusan Sekolah: ${context.studentData.jurusanSekolah}
       Rata-rata Nilai: ${context.averageGrade}
-      Pilihan Jurusan: ${JSON.stringify(context.selections)}
+      Pilihan Jurusan & Passing Grade: ${JSON.stringify(context.passingGrades)}
 
       Aturan:
       1. Jika lintas jurusan, ingatkan ada pengurangan poin 13%.
-      2. Berikan saran realistis berdasarkan nilai.
-      3. Gunakan bahasa Indonesia yang santun dan memotivasi.
-      4. Jawab pertanyaan user: ${message}`;
+      2. Bandingkan nilai rata-rata siswa dengan passing grade jurusan yang dipilih.
+      3. Berikan saran realistis berdasarkan nilai dan passing grade.
+      4. Gunakan bahasa Indonesia yang santun dan memotivasi.
+      5. Jawab pertanyaan user: ${message}`;
 
       const result = await model.generateContent(prompt);
       const reply = result.response.text();
@@ -81,7 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const passingGradeKey = findKey("PASSINGGRADE") || findKey("PASSING GRADE");
+      const passingGradeKey = findKey("PASSINGGRADE") || findKey("PASSING GRADE") || findKey("PASSING_GRADE");
 
       const parsed = [];
       const len = jsonData.length;
@@ -101,17 +102,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const universitas = String(row[univCol] || "").trim();
 
         if (programStudi && universitas) {
+          // Robust number parsing
+          const parseNum = (val: any) => {
+            if (typeof val === 'number') return val;
+            if (!val) return 0;
+            const cleaned = String(val).replace(/[^0-9.,]/g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          };
+
           parsed.push({
             id: `prodi_${i}_${now}`,
             programStudi,
             universitas,
             tingkat: String(row[tingkatCol] || "").trim(),
             jurusanSekolah: String(row[jurusanCol] || "").trim(),
-            dayaTampungSekarang: Number(row[dtNowCol]) || 0,
-            dayaTampungSebelumnya: Number(row[dtPrevCol]) || 0,
-            peminatSebelumnya: Number(row[peminatCol]) || 0,
-            nilai: Math.round((Number(row[nilaiCol]) || 0) * 100) / 100,
-            passingGrade: passingGradeKey ? (Number(row[passingGradeKey]) || 0) : 0,
+            dayaTampungSekarang: parseNum(row[dtNowCol]),
+            dayaTampungSebelumnya: parseNum(row[dtPrevCol]),
+            peminatSebelumnya: parseNum(row[peminatCol]),
+            nilai: Math.round(parseNum(row[nilaiCol]) * 100) / 100,
+            passingGrade: passingGradeKey ? parseNum(row[passingGradeKey]) : 0,
           });
         }
       }
