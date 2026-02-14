@@ -53,10 +53,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, cellNF: false, cellText: false });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
+      const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { 
+        defval: "",
+        raw: false,
+        dateNF: "yyyy-mm-dd"
+      });
 
       if (jsonData.length === 0) {
-        return res.status(400).json({ error: "File Excel kosong" });
+        return res.status(400).json({ error: "File Excel kosong atau tidak terbaca sebagai tabel" });
       }
 
       const requiredCols = [
@@ -66,13 +70,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const firstRow = jsonData[0];
       const keys = Object.keys(firstRow);
-      const upperKeys = keys.map(k => k.toUpperCase().trim());
+      // Log headers for debugging
+      console.log(`Detected headers: ${keys.join(", ")}`);
+      
+      const upperKeys = keys.map(k => k.toUpperCase().replace(/\s/g, '').trim());
 
       const findKey = (target: string) => {
         const normalizedTarget = target.toUpperCase().replace(/\s/g, '').trim();
         const idx = upperKeys.findIndex(k => {
-          const normalizedK = k.toUpperCase().replace(/\s/g, '').trim();
-          return normalizedK === normalizedTarget || normalizedK.includes(normalizedTarget) || normalizedTarget.includes(normalizedK);
+          return k === normalizedTarget || k.includes(normalizedTarget) || normalizedTarget.includes(k);
         });
         return idx >= 0 ? keys[idx] : null;
       };

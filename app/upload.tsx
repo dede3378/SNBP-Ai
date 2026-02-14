@@ -86,20 +86,29 @@ export default function UploadScreen() {
         return;
       }
 
+      // Log file details for debugging
+      console.log(`Uploading file: ${file.name}, size: ${file.size}, uri: ${file.uri}`);
+      
       setFileName(file.name);
       setUploading(true);
 
       let base64Data = "";
-
-      if (Platform.OS === "web") {
-        base64Data = await readFileAsBase64Web(file.uri);
-      } else {
-        base64Data = await readFileAsBase64Native(file.uri);
+      try {
+        if (Platform.OS === "web") {
+          base64Data = await readFileAsBase64Web(file.uri);
+        } else {
+          base64Data = await readFileAsBase64Native(file.uri);
+        }
+      } catch (readError: any) {
+        console.error("Read file error:", readError);
+        throw new Error(`Gagal membaca file: ${readError.message}`);
       }
 
       if (!base64Data) {
         throw new Error("Gagal membaca file, data kosong");
       }
+
+      console.log(`Base64 data length: ${base64Data.length}`);
 
       const apiUrl = getApiUrl();
       const url = new URL("/api/upload-excel", apiUrl);
@@ -107,7 +116,10 @@ export default function UploadScreen() {
       // Use a more efficient way to send data if possible, but keeping compatibility
       const res = await fetch(url.toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify({
           data: base64Data,
           filename: file.name,
@@ -115,8 +127,17 @@ export default function UploadScreen() {
       });
 
       if (!res.ok) {
-        const errBody = await res.json().catch(() => null);
-        throw new Error(errBody?.error || `Upload gagal (${res.status})`);
+        let errText = `Server error (${res.status})`;
+        try {
+          const errBody = await res.json();
+          errText = errBody?.error || errText;
+        } catch (e) {
+          try {
+            const rawText = await res.text();
+            if (rawText) errText = `${errText}: ${rawText.slice(0, 100)}`;
+          } catch (inner) {}
+        }
+        throw new Error(errText);
       }
 
       const parsed = await res.json();
