@@ -69,7 +69,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const upperKeys = keys.map(k => k.toUpperCase().trim());
 
       const findKey = (target: string) => {
-        const idx = upperKeys.findIndex(k => k === target || k.includes(target));
+        const normalizedTarget = target.toUpperCase().replace(/\s/g, '').trim();
+        const idx = upperKeys.findIndex(k => {
+          const normalizedK = k.toUpperCase().replace(/\s/g, '').trim();
+          return normalizedK === normalizedTarget || normalizedK.includes(normalizedTarget) || normalizedTarget.includes(normalizedK);
+        });
         return idx >= 0 ? keys[idx] : null;
       };
 
