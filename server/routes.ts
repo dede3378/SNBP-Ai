@@ -43,14 +43,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { data, filename } = req.body;
 
       if (!data) {
+        console.error("Upload error: No data received");
         return res.status(400).json({ error: "Data file tidak ditemukan" });
       }
 
+      console.log(`Receiving upload: ${filename} (${Math.round(data.length / 1024)} KB)`);
+
       const buffer = Buffer.from(data, "base64");
-      const workbook = XLSX.read(buffer, { type: "buffer" });
+      const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, cellNF: false, cellText: false });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet);
+      const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
 
       if (jsonData.length === 0) {
         return res.status(400).json({ error: "File Excel kosong" });
@@ -84,6 +87,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const passingGradeKey = findKey("PASSINGGRADE") || findKey("PASSING GRADE") || findKey("PASSING_GRADE") || findKey("PG");
 
+      // Simplified number parsing for better performance and reliability
+      const parseNum = (val: any) => {
+        if (typeof val === 'number') return val;
+        if (val === undefined || val === null || val === '') return 0;
+        // Clean up the string: remove percentages and non-numeric chars except . , and -
+        const cleaned = String(val).replace(/%/g, '').replace(/[^0-9.,-]/g, '').replace(',', '.');
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? 0 : num;
+      };
+
       const parsed = [];
       const len = jsonData.length;
       const prodiCol = colMap["PROGRAM STUDI"]!;
@@ -102,16 +115,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const universitas = String(row[univCol] || "").trim();
 
         if (programStudi && universitas) {
-          // Robust number parsing
-          const parseNum = (val: any) => {
-            if (typeof val === 'number') return val;
-            if (val === undefined || val === null || val === '') return 0;
-            // Handle percentages like "85%" or formatted strings
-            const cleaned = String(val).replace(/%/g, '').replace(/[^0-9.,-]/g, '').replace(',', '.');
-            const num = parseFloat(cleaned);
-            return isNaN(num) ? 0 : num;
-          };
-
           parsed.push({
             id: `prodi_${i}_${now}`,
             programStudi,
