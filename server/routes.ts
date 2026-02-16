@@ -53,88 +53,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, cellNF: false, cellText: false });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { 
-        defval: "",
-        raw: false,
-        dateNF: "yyyy-mm-dd"
-      });
-
-      if (jsonData.length === 0) {
-        return res.status(400).json({ error: "File Excel kosong atau tidak terbaca sebagai tabel" });
-      }
+      // Improved header detection: look for required columns in any row
+      let headerRowIndex = 0;
+      let colMap: Record<string, string | null> = {};
+      let keys: string[] = [];
+      let upperKeys: string[] = [];
 
       const requiredCols = [
-        "PROGRAM STUDI", "UNIVERSITAS", "TINGKAT", "JURUSAN DI SEKOLAH",
-        "DAYA TAMPUNG SEKARANG", "DAYA TAMPUNG SEBELUMNYA", "PEMINAT SEBELUMNYA", "NILAI",
+        "PROGRAM STUDI", "UNIVERSITAS", "NILAI",
+      ];
+      
+      const importantCols = [
+        "TINGKAT", "JURUSAN DI SEKOLAH", "DAYA TAMPUNG SEKARANG", 
+        "DAYA TAMPUNG SEBELUMNYA", "PEMINAT SEBELUMNYA", "PASSINGGRADE"
       ];
 
-      const firstRow = jsonData[0];
-      const keys = Object.keys(firstRow);
-      // Log headers for debugging
-      console.log(`Detected headers: ${keys.join(", ")}`);
-      
-      const upperKeys = keys.map(k => k.toUpperCase().replace(/\s/g, '').trim());
-
-      const findKey = (target: string) => {
-        const normalizedTarget = target.toUpperCase().replace(/\s/g, '').trim();
-        const idx = upperKeys.findIndex(k => {
-          return k === normalizedTarget || k.includes(normalizedTarget) || normalizedTarget.includes(k);
+      const findKey = (target: string, kList: string[], uKList: string[]) => {
+        const normalizedTarget = target.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+        const idx = uKList.findIndex(k => {
+          const normalizedK = k.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+          return normalizedK === normalizedTarget || normalizedK.includes(normalizedTarget) || normalizedTarget.includes(normalizedK);
         });
-        return idx >= 0 ? keys[idx] : null;
+        return idx >= 0 ? kList[idx] : null;
       };
 
-      const colMap: Record<string, string | null> = {};
-      for (const col of requiredCols) {
-        colMap[col] = findKey(col);
+      // Try to find headers in the first 10 rows
+      const sheetJsonRaw = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
+      for (let i = 0; i < Math.min(10, sheetJsonRaw.length); i++) {
+        const row = sheetJsonRaw[i];
+        if (!row || !Array.isArray(row)) continue;
+        
+        const rowKeys = row.map(v => String(v || "").trim());
+        const rowUpperKeys = rowKeys.map(k => k.toUpperCase().replace(/[^A-Z0-9]/g, '').trim());
+        
+        let foundCount = 0;
+        for (const col of requiredCols) {
+          if (findKey(col, rowKeys, rowUpperKeys)) foundCount++;
+        }
+        
+        if (foundCount >= requiredCols.length - 1) { // Allow one missing required col if it's high enough
+          headerRowIndex = i;
+          keys = rowKeys;
+          upperKeys = rowUpperKeys;
+          break;
+        }
+      }
+
+      if (keys.length === 0) {
+        // Fallback to first row
+        const firstRowRaw = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { range: 0, nRows: 1 })[0];
+        if (firstRowRaw) {
+          keys = Object.keys(firstRowRaw);
+          upperKeys = keys.map(k => k.toUpperCase().replace(/[^A-Z0-9]/g, '').trim());
+        }
+      }
+
+      console.log(`Detected headers at row ${headerRowIndex}: ${keys.join(", ")}`);
+
+      for (const col of [...requiredCols, ...importantCols]) {
+        colMap[col] = findKey(col, keys, upperKeys);
       }
 
       const missingCols = requiredCols.filter(col => !colMap[col]);
       if (missingCols.length > 0) {
         return res.status(400).json({
-          error: `Kolom tidak ditemukan: ${missingCols.join(", ")}. Kolom yang tersedia: ${keys.join(", ")}`,
+          error: `Kolom wajib tidak ditemukan: ${missingCols.join(", ")}. Pastikan file Excel memiliki header yang benar.`,
         });
       }
 
-      const passingGradeKey = findKey("PASSINGGRADE") || findKey("PASSING GRADE") || findKey("PASSING_GRADE") || findKey("PG");
+      // Re-parse data starting from header row
+      const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { 
+        range: headerRowIndex,
+        defval: "",
+        raw: false,
+        dateNF: "yyyy-mm-dd"
+      });
+
+      const passingGradeKey = colMap["PASSINGGRADE"] || findKey("PG", keys, upperKeys) || findKey("PASSING GRADE", keys, upperKeys);
 
       // Simplified number parsing for better performance and reliability
       const parseNum = (val: any) => {
         if (typeof val === 'number') return val;
         if (val === undefined || val === null || val === '') return 0;
-        // Clean up the string: remove percentages and non-numeric chars except . , and -
         const cleaned = String(val).replace(/%/g, '').replace(/[^0-9.,-]/g, '').replace(',', '.');
         const num = parseFloat(cleaned);
         return isNaN(num) ? 0 : num;
       };
 
       const parsed = [];
-      const len = jsonData.length;
-      const prodiCol = colMap["PROGRAM STUDI"]!;
-      const univCol = colMap["UNIVERSITAS"]!;
-      const tingkatCol = colMap["TINGKAT"]!;
-      const jurusanCol = colMap["JURUSAN DI SEKOLAH"]!;
-      const dtNowCol = colMap["DAYA TAMPUNG SEKARANG"]!;
-      const dtPrevCol = colMap["DAYA TAMPUNG SEBELUMNYA"]!;
-      const peminatCol = colMap["PEMINAT SEBELUMNYA"]!;
-      const nilaiCol = colMap["NILAI"]!;
       const now = Date.now();
 
-      for (let i = 0; i < len; i++) {
+      for (let i = 0; i < jsonData.length; i++) {
         const row = jsonData[i];
-        const programStudi = String(row[prodiCol] || "").trim();
-        const universitas = String(row[univCol] || "").trim();
+        const programStudi = String(row[colMap["PROGRAM STUDI"]!] || "").trim();
+        const universitas = String(row[colMap["UNIVERSITAS"]!] || "").trim();
 
-        if (programStudi && universitas) {
+        if (programStudi && universitas && programStudi !== keys[0]) { // Avoid re-parsing header row
           parsed.push({
             id: `prodi_${i}_${now}`,
             programStudi,
             universitas,
-            tingkat: String(row[tingkatCol] || "").trim(),
-            jurusanSekolah: String(row[jurusanCol] || "").trim(),
-            dayaTampungSekarang: parseNum(row[dtNowCol]),
-            dayaTampungSebelumnya: parseNum(row[dtPrevCol]),
-            peminatSebelumnya: parseNum(row[peminatCol]),
-            nilai: Math.round(parseNum(row[nilaiCol]) * 100) / 100,
+            tingkat: colMap["TINGKAT"] ? String(row[colMap["TINGKAT"]!] || "").trim() : "S-1",
+            jurusanSekolah: colMap["JURUSAN DI SEKOLAH"] ? String(row[colMap["JURUSAN DI SEKOLAH"]!] || "").trim() : "",
+            dayaTampungSekarang: parseNum(row[colMap["DAYA TAMPUNG SEKARANG"]!]),
+            dayaTampungSebelumnya: parseNum(row[colMap["DAYA TAMPUNG SEBELUMNYA"]!]),
+            peminatSebelumnya: parseNum(row[colMap["PEMINAT SEBELUMNYA"]!]),
+            nilai: Math.round(parseNum(row[colMap["NILAI"]!]) * 100) / 100,
             passingGrade: passingGradeKey ? parseNum(row[passingGradeKey]) : 0,
           });
         }
