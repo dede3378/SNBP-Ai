@@ -75,12 +75,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let upperKeys: string[] = [];
 
       const requiredCols = [
-        "PROGRAM STUDI", "UNIVERSITAS", "NILAI",
+        "PROGRAM STUDI", "UNIVERSITAS", "NILAI", "PASSINGGRADE"
       ];
       
       const importantCols = [
         "TINGKAT", "JURUSAN DI SEKOLAH", "DAYA TAMPUNG SEKARANG", 
-        "DAYA TAMPUNG SEBELUMNYA", "PEMINAT SEBELUMNYA", "PASSINGGRADE"
+        "DAYA TAMPUNG SEBELUMNYA", "PEMINAT SEBELUMNYA"
       ];
 
       const findKey = (target: string, kList: string[], uKList: string[]) => {
