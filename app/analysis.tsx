@@ -108,23 +108,24 @@ function calculateChance(
 
   const totalScore = nilaiScore + dayaTampungScore + peminatScore + prestasiScore + akreditasiScore;
   const maxScore = 100;
-  let percentage = Math.min(Math.round((totalScore / maxScore) * 100), 99);
+  let basePercentage = Math.min(Math.round((totalScore / maxScore) * 100), 99);
 
   const mismatch = isJurusanMismatch(studentJurusan, data.jurusanSekolah);
+  let finalPercentage = basePercentage;
   if (mismatch) {
-    percentage = Math.max(0, percentage - 13);
+    finalPercentage = Math.max(0, basePercentage - 13);
   }
 
   let category = "Rendah";
-  if (percentage >= 70) category = "Tinggi";
-  else if (percentage >= 45) category = "Sedang";
+  if (finalPercentage >= 70) category = "Tinggi";
+  else if (finalPercentage >= 45) category = "Sedang";
 
   return {
     pilihan: 0,
     universitas: selection.universitas,
     programStudi: selection.programStudi,
     peluang: category,
-    persentase: percentage,
+    persentase: finalPercentage,
     jurusanMismatch: mismatch,
     details: {
       nilaiScore,
