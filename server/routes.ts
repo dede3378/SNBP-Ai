@@ -47,10 +47,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Data file tidak ditemukan" });
       }
 
-      console.log(`Receiving upload: ${filename} (${Math.round(data.length / 1024)} KB)`);
+      // Log data length for debugging
+      console.log(`Receiving upload: ${filename} (Raw string length: ${data.length})`);
+      
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(data, "base64");
+      } catch (err: any) {
+        console.error("Base64 decode error:", err);
+        return res.status(400).json({ error: "Format data tidak valid (Gagal decode base64)" });
+      }
+      
+      let workbook: XLSX.WorkBook;
+      try {
+        workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, cellNF: false, cellText: false });
+      } catch (err: any) {
+        console.error("XLSX read error:", err);
+        return res.status(400).json({ error: "Gagal membaca file Excel. Pastikan file tidak rusak." });
+      }
 
-      const buffer = Buffer.from(data, "base64");
-      const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, cellNF: false, cellText: false });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       // Improved header detection: look for required columns in any row
