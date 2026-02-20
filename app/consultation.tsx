@@ -67,11 +67,25 @@ export default function ConsultationScreen() {
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error detail:", errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("JSON Parse error. Raw response:", text);
+        throw new Error("Format respon server tidak valid (Bukan JSON)");
+      }
+      
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.reply || "Maaf, saya sedang mengalami kendala teknis.",
+        content: data.reply || "Maaf, saya tidak dapat memberikan jawaban saat ini.",
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
