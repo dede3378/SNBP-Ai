@@ -108,18 +108,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const normalizedTarget = target.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
         const idx = uKList.findIndex(k => {
           const normalizedK = k.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
-          return normalizedK === normalizedTarget || normalizedK.includes(normalizedTarget) || normalizedTarget.includes(normalizedK);
+          // Exact match after normalization or common aliases
+          if (normalizedK === normalizedTarget) return true;
+          
+          // Alias mapping
+          const aliases: Record<string, string[]> = {
+            "PROGRAMSTUDI": ["PRODI", "JURUSAN", "PROGRAMSTUDI"],
+            "UNIVERSITAS": ["KAMPUS", "PTN", "UNIVERSITAS", "INSTITUT"],
+            "NILAI": ["SKOR", "NILAIPENILAIAN", "NILAIMINIMUM"],
+            "PASSINGGRADE": ["PG", "PASSINGGRADE", "AMBANG_BATAS"],
+            "TINGKAT": ["JENJANG", "TINGKAT"],
+            "JURUSAN_DI_SEKOLAH": ["JURUSANSEKOLAH", "ASALJURUSAN"],
+            "DAYATAMPUNGSEKARANG": ["KUOTA", "DAYATAMPUNG"],
+            "PEMINATSEBELUMNYA": ["PEMINAT", "JUMLAH_PENDAFTAR"]
+          };
+
+          const targetAliases = aliases[normalizedTarget] || [];
+          return targetAliases.some(alias => normalizedK.includes(alias) || alias.includes(normalizedK));
         });
         return idx >= 0 ? kList[idx] : null;
       };
 
-      // Try to find headers in the first 10 rows
+      // Try to find headers in the first 20 rows (increased from 10)
       const sheetJsonRaw = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
-      for (let i = 0; i < Math.min(10, sheetJsonRaw.length); i++) {
+      for (let i = 0; i < Math.min(20, sheetJsonRaw.length); i++) {
         const row = sheetJsonRaw[i];
         if (!row || !Array.isArray(row)) continue;
         
-        const rowKeys = row.map(v => String(v || "").trim());
+        const rowKeys = row.map(v => String(v || "").trim()).filter(v => v.length > 0);
+        if (rowKeys.length < 3) continue; // Skip rows with too few columns
+
         const rowUpperKeys = rowKeys.map(k => k.toUpperCase().replace(/[^A-Z0-9]/g, '').trim());
         
         let foundCount = 0;
@@ -127,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (findKey(col, rowKeys, rowUpperKeys)) foundCount++;
         }
         
-        if (foundCount >= requiredCols.length - 1) { // Allow one missing required col if it's high enough
+        if (foundCount >= requiredCols.length - 1) { 
           headerRowIndex = i;
           keys = rowKeys;
           upperKeys = rowUpperKeys;
@@ -161,18 +179,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { 
         range: headerRowIndex,
         defval: "",
-        raw: false,
-        dateNF: "yyyy-mm-dd"
+        raw: true, // Use raw values to handle numbers better
       });
 
       const passingGradeKey = colMap["PASSINGGRADE"] || findKey("PG", keys, upperKeys) || findKey("PASSING GRADE", keys, upperKeys);
 
-      // Simplified number parsing for better performance and reliability
+      // Improved number parsing for better performance and reliability
       const parseNum = (val: any) => {
-        if (typeof val === 'number') return val;
         if (val === undefined || val === null || val === '') return 0;
-        const cleaned = String(val).replace(/%/g, '').replace(/[^0-9.,-]/g, '').replace(',', '.');
-        const num = parseFloat(cleaned);
+        if (typeof val === 'number') return val;
+        
+        // Handle string formats like "1.234,56" or "1,234.56" or "85%"
+        let cleaned = String(val).replace(/%/g, '').trim();
+        
+        // Detect if using comma as decimal separator (Indonesian style)
+        if (cleaned.includes(',') && !cleaned.includes('.')) {
+          cleaned = cleaned.replace(',', '.');
+        } else if (cleaned.includes(',') && cleaned.includes('.')) {
+          // Mixed separators: "1.234,56" -> remove thousands dot, then replace decimal comma
+          if (cleaned.lastIndexOf('.') < cleaned.lastIndexOf(',')) {
+            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+          } else {
+            // "1,234.56" -> remove thousands comma
+            cleaned = cleaned.replace(/,/g, '');
+          }
+        }
+        
+        const num = parseFloat(cleaned.replace(/[^0-9.-]/g, ''));
         return isNaN(num) ? 0 : num;
       };
 
