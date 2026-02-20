@@ -2,39 +2,60 @@ import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import * as XLSX from "xlsx";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+  
+  // Replit AI Integration client
+  const replitAI = new GoogleGenAI({
+    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+    httpOptions: {
+      apiVersion: "",
+      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    },
+  });
 
   app.post("/api/chat", async (req, res) => {
     try {
       const { message, context } = req.body;
-      if (!genAI) {
-        return res.json({ reply: "Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong)." });
-      }
-
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const prompt = `Anda adalah asisten ahli konsultasi SNBP (Seleksi Nasional Berdasarkan Prestasi) untuk Bimbel Attin.
+      
+      const systemPrompt = `Anda adalah asisten ahli konsultasi SNBP (Seleksi Nasional Berdasarkan Prestasi) untuk Bimbel Attin.
       Gunakan data berikut untuk memberikan saran yang personal dan akurat:
-      Nama: ${context.studentData.nama}
-      Sekolah: ${context.studentData.asalSekolah} (Akreditasi: ${context.studentData.akreditasi})
-      Jurusan Sekolah: ${context.studentData.jurusanSekolah}
-      Rata-rata Nilai: ${context.averageGrade}
-      Pilihan Jurusan & Passing Grade: ${JSON.stringify(context.passingGrades)}
+      Nama: ${context.studentData?.nama || "Siswa"}
+      Sekolah: ${context.studentData?.asalSekolah || "-"} (Akreditasi: ${context.studentData?.akreditasi || "-"})
+      Jurusan Sekolah: ${context.studentData?.jurusanSekolah || "-"}
+      Rata-rata Nilai: ${context.averageGrade || 0}
+      Pilihan Jurusan & Passing Grade: ${JSON.stringify(context.passingGrades || [])}
 
       Aturan:
       1. Jika lintas jurusan, ingatkan ada pengurangan poin 13%.
       2. Bandingkan nilai rata-rata siswa dengan passing grade jurusan yang dipilih.
       3. Berikan saran realistis berdasarkan nilai dan passing grade.
       4. Gunakan bahasa Indonesia yang santun dan memotivasi.
-      5. Jawab pertanyaan user: ${message}`;
+      5. Jika ditanya di luar topik SNBP, tetap arahkan kembali ke konsultasi pendidikan.`;
 
-      const result = await model.generateContent(prompt);
-      const reply = result.response.text();
+      let reply = "";
+      
+      if (genAI) {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(`${systemPrompt}\n\nUser: ${message}`);
+        reply = result.response.text();
+      } else {
+        // Use Replit AI Integration
+        const result = await replitAI.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            { role: "user", parts: [{ text: `${systemPrompt}\n\nUser: ${message}` }] }
+          ],
+        });
+        reply = result.text || "Maaf, saya tidak dapat memberikan jawaban saat ini.";
+      }
+
       res.json({ reply });
     } catch (error) {
       console.error("AI Error:", error);
-      res.status(500).json({ reply: "Maaf, asisten AI sedang sibuk." });
+      res.status(500).json({ reply: "Maaf, asisten AI sedang sibuk. Silakan coba lagi nanti." });
     }
   });
 
