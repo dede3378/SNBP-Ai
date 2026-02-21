@@ -2,18 +2,15 @@ import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import * as XLSX from "xlsx";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
   
-  // Replit AI Integration client
-  const replitAI = new GoogleGenAI({
-    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-    httpOptions: {
-      apiVersion: "",
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-    },
+  // Replit AI Integration client for OpenAI (ChatGPT)
+  const openai = new OpenAI({
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
   });
 
   app.post("/api/chat", async (req, res) => {
@@ -37,19 +34,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let reply = "";
       
-      if (genAI) {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent(`${systemPrompt}\n\nUser: ${message}`);
-        reply = result.response.text();
-      } else {
-        // Use Replit AI Integration
-        const result = await replitAI.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: [
-            { role: "user", parts: [{ text: `${systemPrompt}\n\nUser: ${message}` }] }
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message }
           ],
         });
-        reply = result.text || "Maaf, saya tidak dapat memberikan jawaban saat ini.";
+        reply = response.choices[0].message.content || "Maaf, saya tidak dapat memberikan jawaban saat ini.";
+      } catch (openaiError) {
+        console.error("OpenAI Error, falling back to Gemini:", openaiError);
+        if (genAI) {
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          const result = await model.generateContent(`${systemPrompt}\n\nUser: ${message}`);
+          reply = result.response.text();
+        } else {
+          reply = "Maaf, asisten AI sedang tidak tersedia. Silakan coba lagi nanti.";
+        }
       }
 
       res.json({ reply });
@@ -81,7 +83,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let workbook: XLSX.WorkBook;
       try {
-        workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, cellNF: false, cellText: false });
+        // Use more robust read options and try to handle different formats
+        workbook = XLSX.read(buffer, { 
+          type: "buffer", 
+          cellDates: true,
+          cellNF: true,
+          cellText: true,
+          cellStyles: true
+        });
       } catch (err: any) {
         console.error("XLSX read error:", err);
         return res.status(400).json({ error: "Gagal membaca file Excel. Pastikan file tidak rusak." });
