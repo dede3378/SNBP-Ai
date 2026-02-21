@@ -113,30 +113,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Alias mapping
           const aliases: Record<string, string[]> = {
-            "PROGRAMSTUDI": ["PRODI", "JURUSAN", "PROGRAMSTUDI"],
-            "UNIVERSITAS": ["KAMPUS", "PTN", "UNIVERSITAS", "INSTITUT"],
-            "NILAI": ["SKOR", "NILAIPENILAIAN", "NILAIMINIMUM"],
-            "PASSINGGRADE": ["PG", "PASSINGGRADE", "AMBANG_BATAS"],
-            "TINGKAT": ["JENJANG", "TINGKAT"],
-            "JURUSAN_DI_SEKOLAH": ["JURUSANSEKOLAH", "ASALJURUSAN"],
-            "DAYATAMPUNGSEKARANG": ["KUOTA", "DAYATAMPUNG"],
-            "PEMINATSEBELUMNYA": ["PEMINAT", "JUMLAH_PENDAFTAR"]
+            "PROGRAMSTUDI": ["PRODI", "JURUSAN", "PROGRAMSTUDI", "PROGRAM_STUDI", "NAMA_PRODI"],
+            "UNIVERSITAS": ["KAMPUS", "PTN", "UNIVERSITAS", "INSTITUT", "NAMA_KAMPUS", "NAMA_UNIVERSITAS"],
+            "NILAI": ["SKOR", "NILAIPENILAIAN", "NILAIMINIMUM", "NILAI_RAPOR", "NILAI_AKHIR"],
+            "PASSINGGRADE": ["PG", "PASSINGGRADE", "AMBANG_BATAS", "PASSING_GRADE", "GRADE"],
+            "TINGKAT": ["JENJANG", "TINGKAT", "PROGRAM"],
+            "JURUSAN_DI_SEKOLAH": ["JURUSANSEKOLAH", "ASALJURUSAN", "JURUSAN_SMA"],
+            "DAYATAMPUNGSEKARANG": ["KUOTA", "DAYATAMPUNG", "DAYA_TAMPUNG", "KUOTA_2024", "KUOTA_2025"],
+            "PEMINATSEBELUMNYA": ["PEMINAT", "JUMLAH_PENDAFTAR", "PEMINAT_2023", "PEMINAT_2024"]
           };
 
           const targetAliases = aliases[normalizedTarget] || [];
-          return targetAliases.some(alias => normalizedK.includes(alias) || alias.includes(normalizedK));
+          return targetAliases.some(alias => normalizedK === alias || normalizedK.includes(alias) || alias.includes(normalizedK));
         });
         return idx >= 0 ? kList[idx] : null;
       };
 
-      // Try to find headers in the first 20 rows (increased from 10)
+      // Try to find headers in the first 30 rows (increased from 20)
       const sheetJsonRaw = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
-      for (let i = 0; i < Math.min(20, sheetJsonRaw.length); i++) {
+      for (let i = 0; i < Math.min(30, sheetJsonRaw.length); i++) {
         const row = sheetJsonRaw[i];
         if (!row || !Array.isArray(row)) continue;
         
         const rowKeys = row.map(v => String(v || "").trim()).filter(v => v.length > 0);
-        if (rowKeys.length < 3) continue; // Skip rows with too few columns
+        if (rowKeys.length < 2) continue; // Skip rows with too few columns
 
         const rowUpperKeys = rowKeys.map(k => k.toUpperCase().replace(/[^A-Z0-9]/g, '').trim());
         
@@ -145,7 +145,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (findKey(col, rowKeys, rowUpperKeys)) foundCount++;
         }
         
-        if (foundCount >= requiredCols.length - 1) { 
+        // Match if at least 2 required columns are found
+        if (foundCount >= 2) { 
           headerRowIndex = i;
           keys = rowKeys;
           upperKeys = rowUpperKeys;

@@ -164,15 +164,15 @@ export function ConsultationProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEYS.LOGGED_IN, v ? 'true' : 'false');
   };
 
-  const logout = () => {
-    handleSetLoggedIn(false);
-  };
-
   const resetConsultation = () => {
     setStudentData(defaultStudent);
     setGrades([]);
     setAchievements([]);
     setSelections([null, null]);
+  };
+
+  const logout = () => {
+    handleSetLoggedIn(false);
   };
 
   const averageGrade = useMemo(() => {

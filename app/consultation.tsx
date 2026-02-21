@@ -50,6 +50,9 @@ export default function ConsultationScreen() {
     setLoading(true);
 
     try {
+      // Use absolute URL for Replit environment
+      const apiUrl = Platform.OS === "web" ? "/api/chat" : "https://" + process.env.EXPO_PUBLIC_DOMAIN + "/api/chat";
+      
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,6 +93,12 @@ export default function ConsultationScreen() {
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       console.error("Chat error:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 2).toString(),
+        role: "assistant",
+        content: "Maaf, terjadi kesalahan saat menghubungi asisten AI. Pastikan server berjalan dan coba lagi.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
