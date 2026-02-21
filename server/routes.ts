@@ -17,18 +17,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { message, context } = req.body;
       
+      // Try to find relevant programs from context.masterData if available
+      let relevantPrograms = "";
+      if (context.masterData && Array.isArray(context.masterData)) {
+        // Simple search for keywords in the message
+        const keywords = message.toLowerCase().split(/\s+/);
+        const matches = context.masterData.filter((p: any) => 
+          keywords.some(k => 
+            k.length > 3 && (
+              p.programStudi.toLowerCase().includes(k) || 
+              p.universitas.toLowerCase().includes(k)
+            )
+          )
+        ).slice(0, 5);
+        
+        if (matches.length > 0) {
+          relevantPrograms = `\nData Program Studi Terkait:\n${JSON.stringify(matches)}`;
+        }
+      }
+
       const systemPrompt = `Anda adalah asisten ahli konsultasi SNBP (Seleksi Nasional Berdasarkan Prestasi) untuk Bimbel Attin.
       Gunakan data berikut untuk memberikan saran yang personal dan akurat:
       Nama: ${context.studentData?.nama || "Siswa"}
       Sekolah: ${context.studentData?.asalSekolah || "-"} (Akreditasi: ${context.studentData?.akreditasi || "-"})
       Jurusan Sekolah: ${context.studentData?.jurusanSekolah || "-"}
       Rata-rata Nilai: ${context.averageGrade || 0}
-      Pilihan Jurusan & Passing Grade: ${JSON.stringify(context.passingGrades || [])}
+      Pilihan Jurusan & Passing Grade: ${JSON.stringify(context.passingGrades || [])}${relevantPrograms}
 
       Aturan:
-      1. Jika lintas jurusan, ingatkan ada pengurangan poin 13%.
-      2. Bandingkan nilai rata-rata siswa dengan passing grade jurusan yang dipilih.
-      3. Berikan saran realistis berdasarkan nilai dan passing grade.
+      1. Jika lintas jurusan (misal dari IPA ke Soshum atau sebaliknya), ingatkan ada pengurangan poin 13% (nilai akhir = persentase - 13).
+      2. Bandingkan nilai rata-rata siswa dengan passing grade/skor minimum jurusan yang dipilih.
+      3. Berikan saran realistis berdasarkan nilai dan data server yang tersedia.
       4. Gunakan bahasa Indonesia yang santun dan memotivasi.
       5. Jika ditanya di luar topik SNBP, tetap arahkan kembali ke konsultasi pendidikan.`;
 
@@ -138,9 +157,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return idx >= 0 ? kList[idx] : null;
       };
 
-      // Try to find headers in the first 30 rows (increased from 20)
+      // Try to find headers in the first 50 rows (increased from 30)
       const sheetJsonRaw = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
-      for (let i = 0; i < Math.min(30, sheetJsonRaw.length); i++) {
+      for (let i = 0; i < Math.min(50, sheetJsonRaw.length); i++) {
         const row = sheetJsonRaw[i];
         if (!row || !Array.isArray(row)) continue;
         
@@ -154,8 +173,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (findKey(col, rowKeys, rowUpperKeys)) foundCount++;
         }
         
-        // Match if at least 2 required columns are found
-        if (foundCount >= 2) { 
+        // Match if at least 1 required column is found (even more loose)
+        // or if it looks like a header row (lots of text)
+        if (foundCount >= 1 && rowKeys.length >= 4) { 
           headerRowIndex = i;
           keys = rowKeys;
           upperKeys = rowUpperKeys;

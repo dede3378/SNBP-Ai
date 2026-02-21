@@ -24,7 +24,7 @@ interface Message {
 
 export default function ConsultationScreen() {
   const insets = useSafeAreaInsets();
-  const { studentData, averageGrade, selections } = useConsultation();
+  const { studentData, averageGrade, selections, masterData } = useConsultation();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -61,6 +61,7 @@ export default function ConsultationScreen() {
           context: {
             studentData,
             averageGrade,
+            masterData: masterData || [], // Include master data for server-side context
             selections: selections.filter(s => s?.programStudi),
             passingGrades: selections.filter(s => s?.programStudi).map(s => ({
               prodi: s.programStudi,
