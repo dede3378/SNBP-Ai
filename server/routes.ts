@@ -191,6 +191,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         raw: true, // Use raw values to handle numbers better
       });
 
+      console.log(`JSON Data sample (first row after header): ${JSON.stringify(jsonData[0] || {})}`);
+      console.log(`Column Mapping: ${JSON.stringify(colMap)}`);
+
       const passingGradeKey = colMap["PASSINGGRADE"] || findKey("PG", keys, upperKeys) || findKey("PASSING GRADE", keys, upperKeys);
 
       // Improved number parsing for better performance and reliability
@@ -226,7 +229,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const programStudi = String(row[colMap["PROGRAM STUDI"]!] || "").trim();
         const universitas = String(row[colMap["UNIVERSITAS"]!] || "").trim();
 
-        if (programStudi && universitas && programStudi !== keys[0]) { // Avoid re-parsing header row
+        if (programStudi && universitas) {
+          // If the values match headers, it might be the header row itself, skip if it's the very first row of data
+          if (i === 0 && (programStudi.toUpperCase() === "PROGRAM STUDI" || programStudi === colMap["PROGRAM STUDI"])) {
+            continue;
+          }
           parsed.push({
             id: `prodi_${i}_${now}`,
             programStudi,

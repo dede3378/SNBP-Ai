@@ -17,7 +17,7 @@ import Colors from "@/constants/colors";
 SplashScreen.preventAutoHideAsync();
 
 function GlobalHeader() {
-  const { resetConsultation, isLoggedIn } = useConsultation();
+  const { resetConsultation, isLoggedIn, logout } = useConsultation();
 
   if (!isLoggedIn) return null;
 
@@ -44,7 +44,15 @@ function GlobalHeader() {
       "Apakah Anda yakin ingin keluar?",
       [
         { text: "Batal", style: "cancel" },
-        { text: "Keluar", onPress: () => router.replace("/") }
+        { 
+          text: "Keluar", 
+          onPress: () => {
+            if (typeof logout === 'function') {
+              logout();
+            }
+            router.replace("/");
+          } 
+        }
       ]
     );
   };
