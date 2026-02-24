@@ -118,68 +118,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       // Improved header detection: look for required columns in any row
-      let headerRowIndex = 0;
-      let colMap: Record<string, string | null> = {};
-      let keys: string[] = [];
-      let upperKeys: string[] = [];
-
-      const requiredCols = [
-        "PROGRAM STUDI", "UNIVERSITAS", "NILAI", "PASSINGGRADE"
-      ];
-      
-      const importantCols = [
-        "TINGKAT", "JURUSAN DI SEKOLAH", "DAYA TAMPUNG SEKARANG", 
-        "DAYA TAMPUNG SEBELUMNYA", "PEMINAT SEBELUMNYA"
-      ];
-
-      const findKey = (target: string, kList: string[], uKList: string[]) => {
-        const normalizedTarget = target.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
-        const idx = uKList.findIndex(k => {
-          const normalizedK = k.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
-          // Exact match after normalization or common aliases
-          if (normalizedK === normalizedTarget) return true;
-          
-          // Alias mapping
-          const aliases: Record<string, string[]> = {
-            "PROGRAMSTUDI": ["PRODI", "JURUSAN", "PROGRAMSTUDI", "PROGRAM_STUDI", "NAMA_PRODI"],
-            "UNIVERSITAS": ["KAMPUS", "PTN", "UNIVERSITAS", "INSTITUT", "NAMA_KAMPUS", "NAMA_UNIVERSITAS"],
-            "NILAI": ["SKOR", "NILAIPENILAIAN", "NILAIMINIMUM", "NILAI_RAPOR", "NILAI_AKHIR"],
-            "PASSINGGRADE": ["PG", "PASSINGGRADE", "AMBANG_BATAS", "PASSING_GRADE", "GRADE"],
-            "TINGKAT": ["JENJANG", "TINGKAT", "PROGRAM"],
-            "JURUSAN_DI_SEKOLAH": ["JURUSANSEKOLAH", "ASALJURUSAN", "JURUSAN_SMA"],
-            "DAYATAMPUNGSEKARANG": ["KUOTA", "DAYATAMPUNG", "DAYA_TAMPUNG", "KUOTA_2024", "KUOTA_2025"],
-            "PEMINATSEBELUMNYA": ["PEMINAT", "JUMLAH_PENDAFTAR", "PEMINAT_2023", "PEMINAT_2024"]
-          };
-
-          const targetAliases = aliases[normalizedTarget] || [];
-          return targetAliases.some(alias => normalizedK === alias || normalizedK.includes(alias) || alias.includes(normalizedK));
-        });
-        return idx >= 0 ? kList[idx] : null;
-      };
-
-      // Try to find headers in the first 50 rows (increased from 30)
       const sheetJsonRaw = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
+      
+      const cleanSearch = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+
       for (let i = 0; i < Math.min(50, sheetJsonRaw.length); i++) {
         const row = sheetJsonRaw[i];
         if (!row || !Array.isArray(row)) continue;
         
-        const rowKeys = row.map(v => String(v || "").trim()).filter(v => v.length > 0);
-        if (rowKeys.length < 2) continue; // Skip rows with too few columns
+        const rowValues = row.map(v => String(v ?? "").trim()).filter(v => v.length > 0);
+        if (rowValues.length < 2) continue;
 
-        const rowUpperKeys = rowKeys.map(k => k.toUpperCase().replace(/[^A-Z0-9]/g, '').trim());
+        const rowCleaned = rowValues.map(cleanSearch);
         
         let foundCount = 0;
         for (const col of requiredCols) {
-          if (findKey(col, rowKeys, rowUpperKeys)) foundCount++;
+          if (findKey(col, rowValues, rowCleaned)) foundCount++;
         }
         
-        // Match if at least 1 required column is found (even more loose)
-        // or if it looks like a header row (lots of text)
-        if (foundCount >= 1 && rowKeys.length >= 4) { 
+        // Match if at least 1 required column is found OR if the row looks like a header (mostly text)
+        const looksLikeHeader = rowValues.length >= 4 && foundCount >= 1;
+
+        if (looksLikeHeader) { 
           headerRowIndex = i;
-          keys = rowKeys;
-          upperKeys = rowUpperKeys;
+          keys = rowValues;
+          upperKeys = rowCleaned;
+          console.log(`Found header at row ${i}: ${rowValues.join(", ")}`);
           break;
+        }
+      }
+
+      // Aggressive fallback: use the first row that has 4+ columns if nothing found
+      if (keys.length === 0) {
+        for (let i = 0; i < Math.min(20, sheetJsonRaw.length); i++) {
+          const row = sheetJsonRaw[i];
+          if (row && Array.isArray(row) && row.filter(v => String(v ?? "").trim().length > 2).length >= 4) {
+            headerRowIndex = i;
+            keys = row.map(v => String(v ?? "").trim());
+            upperKeys = keys.map(cleanSearch);
+            console.log(`Aggressive fallback header at row ${i}: ${keys.join(", ")}`);
+            break;
+          }
         }
       }
 
