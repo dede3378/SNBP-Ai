@@ -50,7 +50,11 @@ function GlobalHeader() {
             if (typeof logout === 'function') {
               logout();
             }
-            router.replace("/");
+            if (Platform.OS === 'web') {
+              window.location.href = '/';
+            } else {
+              router.replace("/");
+            }
           } 
         }
       ]

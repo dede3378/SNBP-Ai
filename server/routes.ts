@@ -122,6 +122,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const cleanSearch = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
 
+      // REQUIRED columns for the app to function properly
+      const MIN_REQUIRED = ["PROGRAM STUDI", "UNIVERSITAS"];
+
       for (let i = 0; i < Math.min(50, sheetJsonRaw.length); i++) {
         const row = sheetJsonRaw[i];
         if (!row || !Array.isArray(row)) continue;
@@ -131,15 +134,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const rowCleaned = rowValues.map(cleanSearch);
         
-        let foundCount = 0;
-        for (const col of requiredCols) {
-          if (findKey(col, rowValues, rowCleaned)) foundCount++;
+        let foundRequired = 0;
+        for (const col of MIN_REQUIRED) {
+          if (findKey(col, rowValues, rowCleaned)) foundRequired++;
         }
         
-        // Match if at least 1 required column is found OR if the row looks like a header (mostly text)
-        const looksLikeHeader = rowValues.length >= 4 && foundCount >= 1;
-
-        if (looksLikeHeader) { 
+        // Match if at least Program Studi AND Universitas are found
+        if (foundRequired >= 2) { 
           headerRowIndex = i;
           keys = rowValues;
           upperKeys = rowCleaned;
@@ -148,11 +149,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Aggressive fallback: use the first row that has 4+ columns if nothing found
+      // Aggressive fallback: use the first row that has 3+ columns if nothing found
       if (keys.length === 0) {
         for (let i = 0; i < Math.min(20, sheetJsonRaw.length); i++) {
           const row = sheetJsonRaw[i];
-          if (row && Array.isArray(row) && row.filter(v => String(v ?? "").trim().length > 2).length >= 4) {
+          if (row && Array.isArray(row) && row.filter(v => String(v ?? "").trim().length > 2).length >= 3) {
             headerRowIndex = i;
             keys = row.map(v => String(v ?? "").trim());
             upperKeys = keys.map(cleanSearch);
@@ -177,10 +178,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         colMap[col] = findKey(col, keys, upperKeys);
       }
 
-      const missingCols = requiredCols.filter(col => !colMap[col]);
-      if (missingCols.length > 0) {
+      // Check only ABSOLUTELY required columns
+      const criticalMissing = ["PROGRAM STUDI", "UNIVERSITAS"].filter(col => !colMap[col]);
+      if (criticalMissing.length > 0) {
         return res.status(400).json({
-          error: `Kolom wajib tidak ditemukan: ${missingCols.join(", ")}. Pastikan file Excel memiliki header yang benar.`,
+          error: `Kolom wajib tidak ditemukan: ${criticalMissing.join(", ")}. Pastikan file Excel memiliki header yang benar.`,
         });
       }
 
