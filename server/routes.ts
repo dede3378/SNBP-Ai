@@ -117,6 +117,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
+      
+      const requiredCols = ["PROGRAM STUDI", "UNIVERSITAS"];
+      const importantCols = ["TINGKAT", "JURUSAN DI SEKOLAH", "DAYA TAMPUNG SEKARANG", "DAYA TAMPUNG SEBELUMNYA", "PEMINAT SEBELUMNYA", "NILAI", "PASSINGGRADE"];
+      
+      const colMap: Record<string, string | null> = {};
+      let keys: string[] = [];
+      let upperKeys: string[] = [];
+      let headerRowIndex = 0;
+
+      const findKey = (search: string, keys: string[], upperKeys: string[]) => {
+        const cleanSearch = search.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+        
+        // Match specific common aliases
+        const aliases: Record<string, string[]> = {
+          "PROGRAM STUDI": ["PRODI", "JURUSAN", "PROGRAMSTUDI", "NAMAJURUSAN"],
+          "UNIVERSITAS": ["PTN", "KAMPUS", "UNIVERSITAS", "INSTITUSI", "UNIV"],
+          "PASSINGGRADE": ["PG", "PASSINGGRADE", "PASSING", "GRADE", "SKORMIN", "MINSKOR"],
+          "NILAI": ["SKOR", "NILAI", "RATA", "AVERAGE"],
+          "DAYA TAMPUNG SEKARANG": ["DAYATAMPUNG2024", "DAYATAMPUNG2025", "KUOTA", "TAMPUNG"],
+          "PEMINAT SEBELUMNYA": ["PEMINAT2023", "PEMINAT2024", "PEMINAT"],
+        };
+
+        // Try exact match first
+        const idx = upperKeys.indexOf(cleanSearch);
+        if (idx !== -1) return keys[idx];
+
+        // Try aliases
+        const searchAliases = aliases[search.toUpperCase()] || [];
+        for (const alias of searchAliases) {
+          const aliasClean = alias.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+          const aIdx = upperKeys.indexOf(aliasClean);
+          if (aIdx !== -1) return keys[aIdx];
+        }
+
+        // Partial match
+        const pIdx = upperKeys.findIndex(k => k.includes(cleanSearch) || cleanSearch.includes(k));
+        if (pIdx !== -1) return keys[pIdx];
+
+        return null;
+      };
+
       // Improved header detection: look for required columns in any row
       const sheetJsonRaw = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
       

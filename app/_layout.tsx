@@ -51,7 +51,8 @@ function GlobalHeader() {
               logout();
             }
             if (Platform.OS === 'web') {
-              window.location.href = '/';
+              // Redirect to a completely external page or just refresh to clear everything
+              window.location.href = 'about:blank';
             } else {
               router.replace("/");
             }
