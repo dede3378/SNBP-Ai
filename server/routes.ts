@@ -213,11 +213,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      console.log(`Detected headers at row ${headerRowIndex}: ${keys.join(", ")}`);
+      // Log detected keys for debugging
+      console.log(`Analyzing headers: ${JSON.stringify(keys)}`);
+      console.log(`Cleaned upper keys: ${JSON.stringify(upperKeys)}`);
 
       for (const col of [...requiredCols, ...importantCols]) {
         colMap[col] = findKey(col, keys, upperKeys);
       }
+      
+      console.log(`Column mapping result: ${JSON.stringify(colMap)}`);
 
       // Check only ABSOLUTELY required columns
       const criticalMissing = ["PROGRAM STUDI", "UNIVERSITAS"].filter(col => !colMap[col]);

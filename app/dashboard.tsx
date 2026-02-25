@@ -67,6 +67,9 @@ export default function DashboardScreen() {
     if (Platform.OS === "web") {
       logout();
       router.replace("/");
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
     } else {
       Alert.alert("Keluar", "Apakah Anda yakin ingin keluar?", [
         { text: "Batal", style: "cancel" },

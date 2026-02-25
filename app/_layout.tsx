@@ -51,8 +51,11 @@ function GlobalHeader() {
               logout();
             }
             if (Platform.OS === 'web') {
-              // Redirect to a completely external page or just refresh to clear everything
-              window.location.href = 'about:blank';
+              // Redirecting to root and then using a clean state is safer
+              router.replace("/");
+              setTimeout(() => {
+                window.location.reload();
+              }, 100);
             } else {
               router.replace("/");
             }
