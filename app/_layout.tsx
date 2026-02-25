@@ -51,11 +51,8 @@ function GlobalHeader() {
               logout();
             }
             if (Platform.OS === 'web') {
-              // Redirecting to root and then using a clean state is safer
-              router.replace("/");
-              setTimeout(() => {
-                window.location.reload();
-              }, 100);
+              // Redirect to a external URL or refresh completely
+              window.location.replace('/');
             } else {
               router.replace("/");
             }

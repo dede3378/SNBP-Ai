@@ -158,21 +158,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return null;
       };
 
-      // Improved header detection: look for required columns in any row
+      // Improved header detection for the provided format
       const sheetJsonRaw = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
       
-      const cleanSearch = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+      const cleanSearch = (s: string) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
 
       // REQUIRED columns for the app to function properly
       const MIN_REQUIRED = ["PROGRAM STUDI", "UNIVERSITAS"];
 
-      for (let i = 0; i < Math.min(50, sheetJsonRaw.length); i++) {
+      for (let i = 0; i < Math.min(20, sheetJsonRaw.length); i++) {
         const row = sheetJsonRaw[i];
         if (!row || !Array.isArray(row)) continue;
         
-        const rowValues = row.map(v => String(v ?? "").trim()).filter(v => v.length > 0);
-        if (rowValues.length < 2) continue;
-
+        const rowValues = row.map(v => String(v ?? "").trim());
         const rowCleaned = rowValues.map(cleanSearch);
         
         let foundRequired = 0;
@@ -180,12 +178,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (findKey(col, rowValues, rowCleaned)) foundRequired++;
         }
         
-        // Match if at least Program Studi AND Universitas are found
         if (foundRequired >= 2) { 
           headerRowIndex = i;
           keys = rowValues;
           upperKeys = rowCleaned;
-          console.log(`Found header at row ${i}: ${rowValues.join(", ")}`);
+          console.log(`Verified header at row ${i}: ${rowValues.join(", ")}`);
           break;
         }
       }
