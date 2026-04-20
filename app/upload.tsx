@@ -110,11 +110,12 @@ export default function UploadScreen() {
 
       console.log(`Base64 data length: ${base64Data.length}`);
 
-      const apiUrl = getApiUrl();
-      const url = new URL("/api/upload-excel", apiUrl);
+      // Use relative URL on web (Replit proxy handles routing), absolute on native
+      const uploadUrl = Platform.OS === 'web'
+        ? '/api/upload-excel'
+        : new URL("/api/upload-excel", getApiUrl()).toString();
 
-      // Use a more efficient way to send data if possible, but keeping compatibility
-      const res = await fetch(url.toString(), {
+      const res = await fetch(uploadUrl, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

@@ -43,6 +43,7 @@ export interface JurusanSelection {
   universitas: string;
   programStudi: string;
   programStudiData?: ProgramStudi;
+  passingGrade?: number;
 }
 
 export interface AnalysisResult {
@@ -76,7 +77,7 @@ interface ConsultationContextValue {
   selections: [JurusanSelection | null, JurusanSelection | null];
   setSelections: (selections: [JurusanSelection | null, JurusanSelection | null]) => void;
   averageGrade: number;
-  logout: () => void;
+  logout: () => Promise<void>;
   resetConsultation: () => void;
 }
 
@@ -171,8 +172,10 @@ export function ConsultationProvider({ children }: { children: ReactNode }) {
     setSelections([null, null]);
   };
 
-  const logout = () => {
-    handleSetLoggedIn(false);
+  // logout is async so callers can await it before navigating
+  const logout = async () => {
+    setIsLoggedIn(false);
+    await AsyncStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'false');
   };
 
   const averageGrade = useMemo(() => {

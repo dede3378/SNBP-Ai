@@ -46,13 +46,11 @@ function GlobalHeader() {
         { text: "Batal", style: "cancel" },
         { 
           text: "Keluar", 
-          onPress: () => {
-            if (typeof logout === 'function') {
-              logout();
-            }
+          onPress: async () => {
+            // Await logout so storage is saved before navigating
+            await logout();
             if (Platform.OS === 'web') {
-              // Redirect to a external URL or refresh completely
-              window.location.replace('/');
+              window.location.href = '/';
             } else {
               router.replace("/");
             }

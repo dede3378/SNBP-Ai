@@ -64,22 +64,22 @@ export default function DashboardScreen() {
 
   const isDesktop = Platform.OS === 'web' && typeof window !== 'undefined' && window.innerWidth > 768;
   const handleLogout = () => {
-    if (Platform.OS === "web") {
-      logout();
-      window.location.replace('/');
-    } else {
-      Alert.alert("Keluar", "Apakah Anda yakin ingin keluar?", [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Keluar",
-          style: "destructive",
-          onPress: () => {
-            logout();
+    Alert.alert("Keluar", "Apakah Anda yakin ingin keluar?", [
+      { text: "Batal", style: "cancel" },
+      {
+        text: "Keluar",
+        style: "destructive",
+        onPress: async () => {
+          // Await logout so storage is saved before navigating
+          await logout();
+          if (Platform.OS === "web") {
+            window.location.href = '/';
+          } else {
             router.replace("/");
-          },
+          }
         },
-      ]);
-    }
+      },
+    ]);
   };
 
   const handleReset = () => {
