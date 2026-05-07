@@ -12,6 +12,10 @@ export function getApiUrl(): string {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
 
+  // Strip :5000 port — Replit proxy handles routing internally;
+  // external HTTPS URLs (Expo Go on mobile) must not include the internal port
+  host = host.replace(/:5000$/, '');
+
   let url = new URL(`https://${host}`);
 
   return url.href;

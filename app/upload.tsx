@@ -110,10 +110,11 @@ export default function UploadScreen() {
 
       console.log(`Base64 data length: ${base64Data.length}`);
 
-      // Use relative URL on web (Replit proxy handles routing), absolute on native
+      // Strip :5000 port — Replit proxy handles routing internally; external URLs don't use that port
+      const domain = (process.env.EXPO_PUBLIC_DOMAIN || '').replace(/:5000$/, '');
       const uploadUrl = Platform.OS === 'web'
         ? '/api/upload-excel'
-        : new URL("/api/upload-excel", getApiUrl()).toString();
+        : `https://${domain}/api/upload-excel`;
 
       const res = await fetch(uploadUrl, {
         method: "POST",

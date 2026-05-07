@@ -106,9 +106,11 @@ export default function ConsultationScreen() {
         .slice(0, -1) // exclude the latest user message (sent separately)
         .map(m => ({ role: m.role, content: m.content }));
 
+      // Strip :5000 port — Replit proxy handles routing internally; external URLs don't use that port
+      const domain = (process.env.EXPO_PUBLIC_DOMAIN || '').replace(/:5000$/, '');
       const chatUrl = Platform.OS === 'web'
         ? '/api/chat'
-        : `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/chat`;
+        : `https://${domain}/api/chat`;
 
       const response = await fetch(chatUrl, {
         method: "POST",
