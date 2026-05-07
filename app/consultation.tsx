@@ -112,7 +112,10 @@ export default function ConsultationScreen() {
 
       const response = await fetch(chatUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
         body: JSON.stringify({
           message: userMessage.content,
           history,
