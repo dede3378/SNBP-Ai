@@ -38,26 +38,28 @@ function GlobalHeader() {
     );
   };
 
-  const handleExit = () => {
-    Alert.alert(
-      "Keluar",
-      "Apakah Anda yakin ingin keluar?",
-      [
-        { text: "Batal", style: "cancel" },
-        { 
-          text: "Keluar", 
-          onPress: async () => {
-            // Await logout so storage is saved before navigating
-            await logout();
-            if (Platform.OS === 'web') {
-              window.location.href = '/';
-            } else {
+  const handleExit = async () => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm("Apakah Anda yakin ingin keluar?")) {
+        await logout();
+        window.location.href = '/';
+      }
+    } else {
+      Alert.alert(
+        "Keluar",
+        "Apakah Anda yakin ingin keluar?",
+        [
+          { text: "Batal", style: "cancel" },
+          {
+            text: "Keluar",
+            onPress: async () => {
+              await logout();
               router.replace("/");
             }
-          } 
-        }
-      ]
-    );
+          }
+        ]
+      );
+    }
   };
 
   return (
@@ -122,7 +124,7 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -130,12 +132,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
+    if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <ErrorBoundary>

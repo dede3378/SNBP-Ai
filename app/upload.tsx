@@ -17,7 +17,6 @@ import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useConsultation, ProgramStudi } from "@/lib/consultation-context";
-import { getApiUrl } from "@/lib/query-client";
 
 function readFileAsBase64Web(uri: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -110,11 +109,11 @@ export default function UploadScreen() {
 
       console.log(`Base64 data length: ${base64Data.length}`);
 
-      // Strip :5000 port — Replit proxy handles routing internally; external URLs don't use that port
-      const domain = (process.env.EXPO_PUBLIC_DOMAIN || '').replace(/:5000$/, '');
       const uploadUrl = Platform.OS === 'web'
         ? '/api/upload-excel'
-        : `https://${domain}/api/upload-excel`;
+        : `https://${(process.env.EXPO_PUBLIC_DOMAIN || '').replace(/:5000$/, '')}/api/upload-excel`;
+
+      console.log(`Upload URL: ${uploadUrl}`);
 
       const res = await fetch(uploadUrl, {
         method: "POST",

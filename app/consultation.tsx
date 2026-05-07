@@ -99,18 +99,18 @@ export default function ConsultationScreen() {
     setInput("");
     setLoading(true);
 
+    // Build URL outside try block so catch can reference it
+    const domain = (process.env.EXPO_PUBLIC_DOMAIN || '').replace(/:5000$/, '');
+    const chatUrl = Platform.OS === 'web'
+      ? '/api/chat'
+      : `https://${domain}/api/chat`;
+
     try {
       // Build history for multi-turn context (exclude the initial greeting)
       const history = updatedMessages
         .filter(m => m.id !== "1")
         .slice(0, -1) // exclude the latest user message (sent separately)
         .map(m => ({ role: m.role, content: m.content }));
-
-      // Strip :5000 port — Replit proxy handles routing internally; external URLs don't use that port
-      const domain = (process.env.EXPO_PUBLIC_DOMAIN || '').replace(/:5000$/, '');
-      const chatUrl = Platform.OS === 'web'
-        ? '/api/chat'
-        : `https://${domain}/api/chat`;
 
       const response = await fetch(chatUrl, {
         method: "POST",
@@ -142,12 +142,12 @@ export default function ConsultationScreen() {
         content: data.reply || "Maaf, saya tidak dapat memberikan jawaban saat ini.",
       };
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error("Chat error:", error);
+    } catch (error: any) {
+      console.error("Chat error:", error, "URL:", chatUrl);
       const errorMessage: Message = {
         id: (Date.now() + 2).toString(),
         role: "assistant",
-        content: "Maaf, terjadi kesalahan. Pastikan koneksi internet stabil dan coba lagi.",
+        content: `Gagal terhubung ke server AI.\n\nDetail: ${error?.message || String(error)}\nURL: ${chatUrl}\n\nPastikan koneksi internet stabil lalu coba lagi.`,
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {

@@ -163,12 +163,13 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
         return null;
       };
 
-      // Find header row (first row where BOTH "program studi" and "universitas" are present)
+      // Find header row — require at least "program studi" OR "universitas" column
       let headerRowIndex = 0;
       let headerRow: string[] = [];
       let headerRowCleaned: string[] = [];
+      let usePositionalFallback = false;
 
-      for (let i = 0; i < Math.min(15, rawRows.length); i++) {
+      for (let i = 0; i < Math.min(20, rawRows.length); i++) {
         const row = rawRows[i];
         if (!Array.isArray(row)) continue;
         const rowStr = row.map(v => String(v ?? "").trim());
@@ -177,7 +178,7 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
         const hasProdi = findColKey("PROGRAMSTUDI", rowStr, rowClean);
         const hasUniv = findColKey("UNIVERSITAS", rowStr, rowClean);
 
-        if (hasProdi && hasUniv) {
+        if (hasProdi || hasUniv) {
           headerRowIndex = i;
           headerRow = rowStr;
           headerRowCleaned = rowClean;
@@ -186,15 +187,30 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
         }
       }
 
+      // Positional fallback: treat row 0 as header if no named header found
       if (headerRow.length === 0) {
-        return res.status(400).json({
-          error: "Kolom 'PROGRAM STUDI' dan 'UNIVERSITAS' tidak ditemukan. Periksa format file Excel Anda.",
-        });
+        const firstRow = rawRows[0];
+        if (Array.isArray(firstRow) && firstRow.length >= 2) {
+          // Build synthetic header: col0=PROGRAM STUDI, col1=UNIVERSITAS, rest=positional
+          headerRowIndex = 0;
+          headerRow = firstRow.map((_, idx) => {
+            if (idx === 0) return "PROGRAM STUDI";
+            if (idx === 1) return "UNIVERSITAS";
+            return `COL${idx}`;
+          });
+          headerRowCleaned = headerRow.map(clean);
+          usePositionalFallback = true;
+          console.log(`No named header found. Using positional fallback: col0=PROGRAM STUDI, col1=UNIVERSITAS`);
+        } else {
+          return res.status(400).json({
+            error: "Tidak dapat mendeteksi format file. Pastikan kolom minimal berisi 'Program Studi' dan data baris pertama tidak kosong.",
+          });
+        }
       }
 
       // Map all needed columns
-      const colProdi = findColKey("PROGRAMSTUDI", headerRow, headerRowCleaned)!;
-      const colUniv = findColKey("UNIVERSITAS", headerRow, headerRowCleaned)!;
+      const colProdi = findColKey("PROGRAMSTUDI", headerRow, headerRowCleaned) || headerRow[0];
+      const colUniv = findColKey("UNIVERSITAS", headerRow, headerRowCleaned) || headerRow[1] || null;
       const colTingkat = findColKey("TINGKAT", headerRow, headerRowCleaned);
       const colJurusan = findColKey("JURUSANDISEKOLAH", headerRow, headerRowCleaned);
       const colDT = findColKey("DAYATAMPUNGSEKARANG", headerRow, headerRowCleaned);
@@ -203,14 +219,7 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
       const colNilai = findColKey("NILAI", headerRow, headerRowCleaned);
       const colPG = findColKey("PASSINGGRADE", headerRow, headerRowCleaned);
 
-      console.log(`Column map: prodi=${colProdi}, univ=${colUniv}, tingkat=${colTingkat}, jurusan=${colJurusan}, dt=${colDT}, peminat=${colPeminat}, nilai=${colNilai}, pg=${colPG}`);
-
-      // Re-parse from header row using actual headers as keys
-      const dataRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
-        range: headerRowIndex,
-        defval: "",
-        raw: true,
-      });
+      console.log(`Column map: prodi=${colProdi}, univ=${colUniv}, tingkat=${colTingkat}, jurusan=${colJurusan}, dt=${colDT}, peminat=${colPeminat}, nilai=${colNilai}, pg=${colPG}, positionalFallback=${usePositionalFallback}`);
 
       const parseNum = (val: any): number => {
         if (val === undefined || val === null || val === "") return 0;
@@ -231,27 +240,57 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
       const parsed: any[] = [];
       const now = Date.now();
 
-      for (let i = 0; i < dataRows.length; i++) {
-        const row = dataRows[i];
-        const programStudi = String(row[colProdi] ?? "").trim();
-        const universitas = String(row[colUniv] ?? "").trim();
-
-        // Skip empty rows or header row if re-included
-        if (!programStudi || !universitas) continue;
-        if (programStudi.toUpperCase() === "PROGRAM STUDI") continue;
-
-        parsed.push({
-          id: `prodi_${i}_${now}`,
-          programStudi,
-          universitas,
-          tingkat: colTingkat ? String(row[colTingkat] ?? "S-1").trim() || "S-1" : "S-1",
-          jurusanSekolah: colJurusan ? String(row[colJurusan] ?? "").trim() : "",
-          dayaTampungSekarang: colDT ? parseNum(row[colDT]) : 0,
-          dayaTampungSebelumnya: colDTSeb ? parseNum(row[colDTSeb]) : 0,
-          peminatSebelumnya: colPeminat ? parseNum(row[colPeminat]) : 0,
-          nilai: colNilai ? Math.round(parseNum(row[colNilai]) * 100) / 100 : 0,
-          passingGrade: colPG ? parseNum(row[colPG]) : 0,
+      if (usePositionalFallback) {
+        // No named header — parse all rows using positional indices (0=prodi, 1=univ, ...)
+        for (let i = 0; i < rawRows.length; i++) {
+          const row = rawRows[i];
+          if (!Array.isArray(row)) continue;
+          const programStudi = String(row[0] ?? "").trim();
+          const universitas = String(row[1] ?? "").trim();
+          if (!programStudi) continue;
+          parsed.push({
+            id: `prodi_${i}_${now}`,
+            programStudi,
+            universitas: universitas || "",
+            tingkat: String(row[2] ?? "S-1").trim() || "S-1",
+            jurusanSekolah: String(row[3] ?? "").trim(),
+            dayaTampungSekarang: parseNum(row[4]),
+            dayaTampungSebelumnya: parseNum(row[5]),
+            peminatSebelumnya: parseNum(row[6]),
+            nilai: Math.round(parseNum(row[7]) * 100) / 100,
+            passingGrade: parseNum(row[8]),
+          });
+        }
+      } else {
+        // Named header — re-parse from header row using actual column keys
+        const dataRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
+          range: headerRowIndex,
+          defval: "",
+          raw: true,
         });
+
+        for (let i = 0; i < dataRows.length; i++) {
+          const row = dataRows[i];
+          const programStudi = String(row[colProdi] ?? "").trim();
+          const universitas = colUniv ? String(row[colUniv] ?? "").trim() : "";
+
+          // Skip empty rows or rows that are actually the header again
+          if (!programStudi) continue;
+          if (clean(programStudi) === "PROGRAMSTUDI") continue;
+
+          parsed.push({
+            id: `prodi_${i}_${now}`,
+            programStudi,
+            universitas,
+            tingkat: colTingkat ? String(row[colTingkat] ?? "S-1").trim() || "S-1" : "S-1",
+            jurusanSekolah: colJurusan ? String(row[colJurusan] ?? "").trim() : "",
+            dayaTampungSekarang: colDT ? parseNum(row[colDT]) : 0,
+            dayaTampungSebelumnya: colDTSeb ? parseNum(row[colDTSeb]) : 0,
+            peminatSebelumnya: colPeminat ? parseNum(row[colPeminat]) : 0,
+            nilai: colNilai ? Math.round(parseNum(row[colNilai]) * 100) / 100 : 0,
+            passingGrade: colPG ? parseNum(row[colPG]) : 0,
+          });
+        }
       }
 
       console.log(`Parsed ${parsed.length} program studi from ${filename}`);
