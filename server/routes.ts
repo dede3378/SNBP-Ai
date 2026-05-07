@@ -12,7 +12,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/chat", async (req, res) => {
     try {
-      const { message, context, history } = req.body;
+      const { message, context, history, imageBase64, imageMimeType } = req.body;
 
       // Find relevant programs from masterData for keyword context
       let relevantPrograms = "";
@@ -79,7 +79,22 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
         }
       }
 
-      messages.push({ role: "user", content: message });
+      // Build user message — include image if provided (GPT-4o Vision)
+      if (imageBase64 && imageMimeType) {
+        const mime = imageMimeType.startsWith("image/") ? imageMimeType : "image/jpeg";
+        messages.push({
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: `data:${mime};base64,${imageBase64}`, detail: "high" },
+            },
+            { type: "text", text: message || "Tolong baca dan analisis gambar ini." },
+          ],
+        });
+      } else {
+        messages.push({ role: "user", content: message });
+      }
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o",

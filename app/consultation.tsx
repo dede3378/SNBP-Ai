@@ -9,10 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import Colors from "@/constants/colors";
 import { useConsultation } from "@/lib/consultation-context";
 
@@ -20,29 +22,24 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  imageUri?: string;
 }
 
-// Simple markdown-like text renderer
 function FormattedText({ text, style }: { text: string; style?: any }) {
   const lines = text.split('\n');
   return (
     <View>
       {lines.map((line, i) => {
-        // Bold: **text**
         const boldParts = line.split(/\*\*(.*?)\*\*/g);
         const rendered = boldParts.map((part, j) =>
           j % 2 === 1
             ? <Text key={j} style={[style, { fontFamily: "Inter_700Bold" }]}>{part}</Text>
             : <Text key={j} style={style}>{part}</Text>
         );
-
-        // Bullet / numbered list
         const isBullet = /^[-•]\s/.test(line);
         const isNumbered = /^\d+\.\s/.test(line);
         const isHeader = /^#+\s/.test(line);
-
         const cleanLine = isHeader ? line.replace(/^#+\s/, '') : line;
-
         return (
           <View key={i} style={isBullet || isNumbered ? { flexDirection: 'row', marginVertical: 1 } : { marginVertical: 1 }}>
             {(isBullet || isNumbered) && (
@@ -71,6 +68,30 @@ function FormattedText({ text, style }: { text: string; style?: any }) {
   );
 }
 
+async function imageUriToBase64(uri: string, mimeType: string): Promise<string> {
+  if (Platform.OS === 'web') {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = () => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = () => reject(new Error("Gagal membaca gambar"));
+        reader.readAsDataURL(xhr.response);
+      };
+      xhr.onerror = () => reject(new Error("Gagal mengambil gambar"));
+      xhr.open('GET', uri);
+      xhr.responseType = 'blob';
+      xhr.send();
+    });
+  } else {
+    const FileSystem = await import("expo-file-system/legacy");
+    return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  }
+}
+
 export default function ConsultationScreen() {
   const insets = useSafeAreaInsets();
   const { studentData, averageGrade, selections, masterData } = useConsultation();
@@ -78,38 +99,80 @@ export default function ConsultationScreen() {
     {
       id: "1",
       role: "assistant",
-      content: `Halo${studentData.nama ? ` **${studentData.nama}**` : ""}! 👋 Saya Konselor SNBP AI dari Bimbel Attin.\n\nSaya siap membantu Anda menganalisis peluang SNBP, memilih jurusan terbaik, dan memberikan strategi yang tepat berdasarkan nilai rapor dan data Anda.\n\nAda yang ingin Anda tanyakan?`,
+      content: `Halo${studentData.nama ? ` **${studentData.nama}**` : ""}! 👋 Saya Konselor SNBP AI dari Bimbel Attin.\n\nSaya siap membantu Anda menganalisis peluang SNBP, memilih jurusan terbaik, dan memberikan strategi yang tepat berdasarkan nilai rapor dan data Anda.\n\nAnda juga bisa **kirim foto** (rapor, pengumuman, soal, dll.) dan saya akan membacanya!\n\nAda yang ingin Anda tanyakan?`,
     },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{ uri: string; base64: string; mimeType: string } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  const pickImage = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          alert("Izin akses galeri diperlukan untuk memilih foto.");
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      const mimeType = asset.mimeType || 'image/jpeg';
+
+      let base64 = asset.base64 || '';
+      if (!base64 && asset.uri) {
+        base64 = await imageUriToBase64(asset.uri, mimeType);
+      }
+
+      setSelectedImage({ uri: asset.uri, base64, mimeType });
+    } catch (err: any) {
+      console.error("Image pick error:", err);
+      alert("Gagal memilih gambar: " + err.message);
+    }
+  };
+
+  const removeImage = () => setSelectedImage(null);
+
   const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+    const hasText = input.trim().length > 0;
+    const hasImage = !!selectedImage;
+    if ((!hasText && !hasImage) || loading) return;
+
+    const messageText = hasText ? input.trim() : (hasImage ? "Tolong baca dan analisis gambar ini." : "");
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: messageText,
+      imageUri: selectedImage?.uri,
     };
 
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput("");
+    const imageToSend = selectedImage;
+    setSelectedImage(null);
     setLoading(true);
 
-    // Build URL outside try block so catch can reference it
     const domain = (process.env.EXPO_PUBLIC_DOMAIN || '').replace(/:5000$/, '');
     const chatUrl = Platform.OS === 'web'
       ? '/api/chat'
       : `https://${domain}/api/chat`;
 
     try {
-      // Build history for multi-turn context (exclude the initial greeting)
       const history = updatedMessages
         .filter(m => m.id !== "1")
-        .slice(0, -1) // exclude the latest user message (sent separately)
+        .slice(0, -1)
         .map(m => ({ role: m.role, content: m.content }));
 
       const response = await fetch(chatUrl, {
@@ -119,12 +182,14 @@ export default function ConsultationScreen() {
           "X-Requested-With": "XMLHttpRequest",
         },
         body: JSON.stringify({
-          message: userMessage.content,
+          message: messageText,
+          imageBase64: imageToSend?.base64 || null,
+          imageMimeType: imageToSend?.mimeType || null,
           history,
           context: {
             studentData,
             averageGrade,
-            masterData: masterData.slice(0, 50), // send first 50 for context
+            masterData: masterData.slice(0, 50),
             selections: selections.filter(s => s?.programStudi),
           },
         }),
@@ -147,7 +212,7 @@ export default function ConsultationScreen() {
       const errorMessage: Message = {
         id: (Date.now() + 2).toString(),
         role: "assistant",
-        content: `Gagal terhubung ke server AI.\n\nDetail: ${error?.message || String(error)}\nURL: ${chatUrl}\n\nPastikan koneksi internet stabil lalu coba lagi.`,
+        content: `Gagal terhubung ke server AI.\n\nDetail: ${error?.message || String(error)}\n\nPastikan koneksi internet stabil lalu coba lagi.`,
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -162,6 +227,7 @@ export default function ConsultationScreen() {
     }
   };
 
+  const canSend = (input.trim().length > 0 || !!selectedImage) && !loading;
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   return (
@@ -172,9 +238,9 @@ export default function ConsultationScreen() {
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Konselor SNBP AI</Text>
-          <Text style={styles.headerSub}>Bimbel Attin</Text>
+          <Text style={styles.headerSub}>Bimbel Attin • GPT-4o Vision</Text>
         </View>
-        <View style={[styles.onlineDot]} />
+        <View style={styles.onlineDot} />
       </View>
 
       <ScrollView
@@ -203,13 +269,23 @@ export default function ConsultationScreen() {
                 msg.role === "user" ? styles.userBubble : styles.aiBubble,
               ]}
             >
-              <FormattedText
-                text={msg.content}
-                style={[
-                  styles.messageText,
-                  msg.role === "user" ? styles.userText : styles.aiText,
-                ]}
-              />
+              {msg.imageUri && (
+                <Image
+                  source={{ uri: msg.imageUri }}
+                  style={styles.messageImage}
+                  resizeMode="cover"
+                />
+              )}
+              {msg.content ? (
+                <FormattedText
+                  text={msg.content}
+                  style={[
+                    styles.messageText,
+                    msg.role === "user" ? styles.userText : styles.aiText,
+                    !!msg.imageUri && { marginTop: 6 },
+                  ]}
+                />
+              ) : null}
             </View>
           </View>
         ))}
@@ -220,7 +296,7 @@ export default function ConsultationScreen() {
             </View>
             <View style={[styles.messageBubble, styles.aiBubble, styles.loadingBubble]}>
               <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={styles.loadingText}>Sedang menulis...</Text>
+              <Text style={styles.loadingText}>Sedang membaca...</Text>
             </View>
           </View>
         )}
@@ -230,10 +306,22 @@ export default function ConsultationScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
+        {selectedImage && (
+          <View style={styles.imagePreviewContainer}>
+            <Image source={{ uri: selectedImage.uri }} style={styles.imagePreview} resizeMode="cover" />
+            <Pressable onPress={removeImage} style={styles.imageRemoveBtn}>
+              <Ionicons name="close-circle" size={22} color={Colors.danger} />
+            </Pressable>
+            <Text style={styles.imagePreviewLabel}>Foto siap dikirim</Text>
+          </View>
+        )}
         <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 10 }]}>
+          <Pressable onPress={pickImage} style={styles.imageBtn} disabled={loading}>
+            <Ionicons name="image-outline" size={22} color={selectedImage ? Colors.primary : Colors.textMuted} />
+          </Pressable>
           <TextInput
             style={styles.input}
-            placeholder="Tanya tentang jurusan, peluang SNBP..."
+            placeholder={selectedImage ? "Tambahkan pesan (opsional)..." : "Tanya atau kirim foto..."}
             placeholderTextColor={Colors.textMuted}
             value={input}
             onChangeText={setInput}
@@ -243,8 +331,8 @@ export default function ConsultationScreen() {
           />
           <Pressable
             onPress={sendMessage}
-            style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
-            disabled={!input.trim() || loading}
+            style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
+            disabled={!canSend}
           >
             {loading
               ? <ActivityIndicator size="small" color={Colors.white} />
@@ -280,76 +368,65 @@ const styles = StyleSheet.create({
   messageRowUser: { justifyContent: "flex-end" },
   messageRowAI: { justifyContent: "flex-start" },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 32, height: 32, borderRadius: 16,
     backgroundColor: Colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 2,
+    justifyContent: "center", alignItems: "center", marginBottom: 2,
   },
   avatarText: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.white },
-  messageBubble: {
-    maxWidth: "78%",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 18,
-  },
-  userBubble: {
-    backgroundColor: Colors.primary,
-    borderBottomRightRadius: 4,
-  },
+  messageBubble: { maxWidth: "78%", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
+  userBubble: { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
   aiBubble: {
-    backgroundColor: Colors.white,
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    backgroundColor: Colors.white, borderBottomLeftRadius: 4,
+    borderWidth: 1, borderColor: Colors.borderLight,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
   loadingBubble: { flexDirection: "row", gap: 8, alignItems: "center" },
   loadingText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textMuted },
   messageText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
   userText: { color: Colors.white },
   aiText: { color: Colors.text },
-  inputContainer: {
+  messageImage: {
+    width: 200, height: 150, borderRadius: 10,
+    marginBottom: 2,
+  },
+  imagePreviewContainer: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingTop: 10,
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
+    gap: 10,
+  },
+  imagePreview: { width: 48, height: 48, borderRadius: 8 },
+  imageRemoveBtn: { padding: 2 },
+  imagePreviewLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary, flex: 1 },
+  inputContainer: {
+    flexDirection: "row", alignItems: "flex-end", gap: 8,
+    paddingHorizontal: 12, paddingTop: 10,
+    backgroundColor: Colors.white,
+    borderTopWidth: 1, borderTopColor: Colors.borderLight,
+  },
+  imageBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    justifyContent: "center", alignItems: "center",
+    backgroundColor: "#F5F7FA",
+    borderWidth: 1, borderColor: Colors.borderLight,
   },
   input: {
-    flex: 1,
-    backgroundColor: "#F5F7FA",
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    maxHeight: 120,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    color: Colors.text,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
+    flex: 1, backgroundColor: "#F5F7FA", borderRadius: 22,
+    paddingHorizontal: 16, paddingVertical: 10, maxHeight: 120,
+    fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.text,
+    borderWidth: 1, borderColor: Colors.borderLight,
   },
   sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 42, height: 42, borderRadius: 21,
     backgroundColor: Colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    justifyContent: "center", alignItems: "center",
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3, shadowRadius: 4, elevation: 3,
   },
   sendBtnDisabled: { opacity: 0.5, shadowOpacity: 0 },
 });
