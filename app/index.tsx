@@ -5,10 +5,10 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  Alert,
   Platform,
   KeyboardAvoidingView,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,10 +17,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useConsultation } from "@/lib/consultation-context";
+import { getApiUrl } from "@/lib/query-client";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { isLoggedIn, setIsLoggedIn } = useConsultation();
+  const { isLoggedIn, setIsLoggedIn, currentUser, setCurrentUser } = useConsultation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,10 +29,14 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isLoggedIn) {
-      router.replace("/dashboard");
+    if (isLoggedIn && currentUser) {
+      if (currentUser.role === "admin") {
+        router.replace("/dashboard");
+      } else {
+        router.replace("/student");
+      }
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, currentUser]);
 
   const handleLogin = async () => {
     setError("");
@@ -39,17 +44,31 @@ export default function LoginScreen() {
       setError("Username dan password harus diisi");
       return;
     }
-
     setLoading(true);
-    await new Promise(r => setTimeout(r, 500));
-
-    if (username.trim().toLowerCase() === "attin" && password === "snbp2026") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setIsLoggedIn(true);
-      router.replace("/dashboard");
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError("Username atau password salah");
+    try {
+      const apiUrl = getApiUrl();
+      const res = await fetch(`${apiUrl}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setError(json.error || "Username atau password salah");
+      } else {
+        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const user = { id: json.id, username: json.username, role: json.role, nama: json.nama };
+        setCurrentUser(user);
+        setIsLoggedIn(true);
+        if (json.role === "admin") {
+          router.replace("/dashboard");
+        } else {
+          router.replace("/student");
+        }
+      }
+    } catch (e) {
+      setError("Tidak dapat terhubung ke server. Coba lagi.");
     }
     setLoading(false);
   };
@@ -58,7 +77,7 @@ export default function LoginScreen() {
 
   return (
     <LinearGradient
-      colors={["#0284C7", "#0EA5E9", "#38BDF8"]}
+      colors={["#C00000", "#8B0000", "#5C0000"]}
       style={styles.gradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
@@ -69,15 +88,15 @@ export default function LoginScreen() {
       >
         <View style={[styles.container, { paddingTop: insets.top + webTopInset + 40, paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20 }]}>
           <View style={styles.header}>
-            <View style={styles.iconCircle}>
+            <View style={styles.logoCircle}>
               <Image
-                source={require("../assets/images/icon.png")}
+                source={require("../assets/images/attin-logo.jpg")}
                 style={styles.logoImage}
-                resizeMode="contain"
+                resizeMode="cover"
               />
             </View>
             <Text style={styles.title}>Konsultasi SNBP</Text>
-            <Text style={styles.subtitle}>Bimbel Attin</Text>
+            <Text style={styles.subtitle}>Bimbingan Belajar ATTIN</Text>
           </View>
 
           <View style={styles.card}>
@@ -95,6 +114,7 @@ export default function LoginScreen() {
                   onChangeText={setUsername}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  editable={!loading}
                 />
               </View>
             </View>
@@ -111,6 +131,8 @@ export default function LoginScreen() {
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  editable={!loading}
+                  onSubmitEditing={handleLogin}
                 />
                 <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
                   <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={Colors.textMuted} />
@@ -134,9 +156,11 @@ export default function LoginScreen() {
               onPress={handleLogin}
               disabled={loading}
             >
-              <Text style={styles.loginBtnText}>
-                {loading ? "Memproses..." : "Masuk"}
-              </Text>
+              {loading ? (
+                <ActivityIndicator color={Colors.white} size="small" />
+              ) : (
+                <Text style={styles.loginBtnText}>Masuk</Text>
+              )}
             </Pressable>
           </View>
 
@@ -160,24 +184,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 32,
   },
-  iconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.white,
-    justifyContent: "center",
-    alignItems: "center",
+  logoCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: "hidden",
     marginBottom: 16,
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.5)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 8,
-    overflow: "hidden",
+    elevation: 10,
   },
   logoImage: {
-    width: 88,
-    height: 88,
+    width: 100,
+    height: 100,
   },
   title: {
     fontSize: 28,
@@ -186,7 +209,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Inter_500Medium",
     color: "rgba(255,255,255,0.85)",
   },
@@ -198,7 +221,7 @@ const styles = StyleSheet.create({
     padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.2,
     shadowRadius: 24,
     elevation: 12,
   },
@@ -262,12 +285,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loginBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: "#C00000",
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 8,
-    shadowColor: Colors.primary,
+    shadowColor: "#C00000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

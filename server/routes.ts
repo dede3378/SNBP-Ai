@@ -2,19 +2,92 @@ import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import * as XLSX from "xlsx";
 import OpenAI from "openai";
+import * as fs from "fs";
+import * as path from "path";
+import { storage } from "./storage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Replit AI Integration client for OpenAI (GPT-4o)
   const openai = new OpenAI({
     apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
     baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
   });
 
+  // Serve Attin logo for print
+  app.get("/api/logo/attin", (req, res) => {
+    const logoPath = path.join(process.cwd(), "assets", "images", "attin-logo.jpg");
+    if (fs.existsSync(logoPath)) {
+      res.setHeader("Content-Type", "image/jpeg");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.sendFile(logoPath);
+    } else {
+      res.status(404).send("Not found");
+    }
+  });
+
+  // Auth
+  app.post("/api/login", (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username dan password harus diisi" });
+    }
+    const user = storage.getUserByUsername(username);
+    if (!user || user.password !== password) {
+      return res.status(401).json({ error: "Username atau password salah" });
+    }
+    return res.json({ success: true, role: user.role, username: user.username, nama: user.nama, id: user.id });
+  });
+
+  // User management (admin only — trust checked on client for simplicity)
+  app.get("/api/users", (req, res) => {
+    const users = storage.getAllUsers().map(u => ({ id: u.id, username: u.username, role: u.role, nama: u.nama }));
+    res.json(users);
+  });
+
+  app.post("/api/users", (req, res) => {
+    const { username, password, role, nama } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username dan password wajib diisi" });
+    }
+    const existing = storage.getUserByUsername(username);
+    if (existing) {
+      return res.status(409).json({ error: "Username sudah digunakan" });
+    }
+    const user = storage.createUser({
+      username: username.trim(),
+      password,
+      role: role === "admin" ? "admin" : "user",
+      nama: (nama || username).trim(),
+    });
+    res.json({ id: user.id, username: user.username, role: user.role, nama: user.nama });
+  });
+
+  app.patch("/api/users/:id", (req, res) => {
+    const { id } = req.params;
+    const { password, nama, role } = req.body;
+    const updates: any = {};
+    if (password) updates.password = password;
+    if (nama) updates.nama = nama;
+    if (role) updates.role = role;
+    const updated = storage.updateUser(id, updates);
+    if (!updated) return res.status(404).json({ error: "User tidak ditemukan" });
+    res.json({ id: updated.id, username: updated.username, role: updated.role, nama: updated.nama });
+  });
+
+  app.delete("/api/users/:id", (req, res) => {
+    const { id } = req.params;
+    if (id === "admin-1") {
+      return res.status(403).json({ error: "Admin utama tidak bisa dihapus" });
+    }
+    const ok = storage.deleteUser(id);
+    if (!ok) return res.status(404).json({ error: "User tidak ditemukan" });
+    res.json({ success: true });
+  });
+
+  // AI Chat
   app.post("/api/chat", async (req, res) => {
     try {
       const { message, context, history, imageBase64, imageMimeType } = req.body;
 
-      // Find relevant programs from masterData for keyword context
       let relevantPrograms = "";
       if (context.masterData && Array.isArray(context.masterData) && context.masterData.length > 0) {
         const keywords = message.toLowerCase().split(/\s+/).filter((k: string) => k.length > 3);
@@ -24,7 +97,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             p.universitas?.toLowerCase().includes(k)
           )
         ).slice(0, 8);
-
         if (matches.length > 0) {
           relevantPrograms = `\n\nData Program Studi yang Relevan dari Database:\n${matches.map((p: any) =>
             `- ${p.programStudi} | ${p.universitas} | Daya Tampung: ${p.dayaTampungSekarang} | Peminat: ${p.peminatSebelumnya} | Nilai Min: ${p.nilai} | Passing Grade: ${p.passingGrade} | Jurusan Sekolah: ${p.jurusanSekolah}`
@@ -32,7 +104,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Format selections detail
       const selectionDetails = (context.selections || [])
         .filter((s: any) => s?.programStudi)
         .map((s: any, i: number) => {
@@ -50,26 +121,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${relevantPrograms}
 
 ## ATURAN ANALISIS SNBP
-1. **Lintas Jurusan**: Jika siswa dari jurusan IPA memilih prodi IPS/Soshum (atau sebaliknya), nilai akhir dikurangi 13 poin. Selalu sebutkan ini dan hitung ulang peluangnya.
-2. **Perbandingan Nilai**: Bandingkan rata-rata nilai siswa dengan nilai minimum (passing grade) prodi yang dipilih. Sertakan selisihnya secara eksplisit.
-3. **Rasio Keketatan**: Pertimbangkan rasio daya tampung vs peminat. Semakin kecil rasio, semakin ketat persaingan.
-4. **Akreditasi**: Akreditasi A memberi keuntungan lebih besar dibanding B atau C dalam seleksi.
+1. **Lintas Jurusan**: Jika siswa dari jurusan IPA memilih prodi IPS/Soshum (atau sebaliknya), nilai akhir dikurangi 13 poin.
+2. **Perbandingan Nilai**: Bandingkan rata-rata nilai siswa dengan nilai minimum (passing grade) prodi yang dipilih.
+3. **Rasio Keketatan**: Pertimbangkan rasio daya tampung vs peminat.
+4. **Akreditasi**: Akreditasi A memberi keuntungan lebih besar dibanding B atau C.
 5. **Prestasi**: Prestasi akademik/non-akademik tingkat nasional atau internasional meningkatkan peluang signifikan.
 
 ## GAYA MENJAWAB
-- Gunakan **bahasa Indonesia yang hangat, santun, dan memotivasi**.
-- Berikan jawaban yang **terstruktur, detail, dan actionable** — seperti konselor berpengalaman.
-- Gunakan **angka dan data konkret** jika tersedia.
-- Jika ada risiko, sampaikan dengan **jujur tapi empatik** disertai saran alternatif.
-- Format jawaban dengan poin-poin jelas dan mudah dibaca.
-- Jika pertanyaan di luar SNBP, arahkan kembali ke topik konsultasi pendidikan dengan sopan.`;
+- Gunakan bahasa Indonesia yang hangat, santun, dan memotivasi.
+- Berikan jawaban yang terstruktur, detail, dan actionable.
+- Gunakan angka dan data konkret jika tersedia.
+- Format jawaban dengan poin-poin jelas dan mudah dibaca.`;
 
-      // Build conversation history for multi-turn context
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
       ];
 
-      // Include recent conversation history (last 10 messages)
       if (history && Array.isArray(history)) {
         const recent = history.slice(-10);
         for (const msg of recent) {
@@ -79,16 +146,12 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
         }
       }
 
-      // Build user message — include image if provided (GPT-4o Vision)
       if (imageBase64 && imageMimeType) {
         const mime = imageMimeType.startsWith("image/") ? imageMimeType : "image/jpeg";
         messages.push({
           role: "user",
           content: [
-            {
-              type: "image_url",
-              image_url: { url: `data:${mime};base64,${imageBase64}`, detail: "high" },
-            },
+            { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}`, detail: "high" } },
             { type: "text", text: message || "Tolong baca dan analisis gambar ini." },
           ],
         });
@@ -111,40 +174,26 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
     }
   });
 
+  // Excel Upload
   app.post("/api/upload-excel", (req, res) => {
     try {
       const { data, filename } = req.body;
-
-      if (!data) {
-        return res.status(400).json({ error: "Data file tidak ditemukan" });
-      }
-
-      console.log(`Upload: ${filename} (length: ${data.length})`);
+      if (!data) return res.status(400).json({ error: "Data file tidak ditemukan" });
 
       let buffer: Buffer;
-      try {
-        buffer = Buffer.from(data, "base64");
-      } catch (err: any) {
-        return res.status(400).json({ error: "Format data tidak valid (Gagal decode base64)" });
-      }
+      try { buffer = Buffer.from(data, "base64"); }
+      catch { return res.status(400).json({ error: "Format data tidak valid" }); }
 
       let workbook: XLSX.WorkBook;
-      try {
-        workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
-      } catch (err: any) {
-        console.error("XLSX read error:", err);
-        return res.status(400).json({ error: "Gagal membaca file Excel. Pastikan file tidak rusak." });
-      }
+      try { workbook = XLSX.read(buffer, { type: "buffer", cellDates: true }); }
+      catch { return res.status(400).json({ error: "Gagal membaca file Excel." }); }
 
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-
-      // Parse all rows as raw arrays to find header row
       const rawRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
 
       const clean = (s: any) => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
 
-      // Column aliases for flexible matching
       const ALIASES: Record<string, string[]> = {
         "PROGRAMSTUDI": ["PRODI", "JURUSAN", "PROGRAMSTUDI", "NAMAJURUSAN", "NAMAPRODI"],
         "UNIVERSITAS": ["PTN", "KAMPUS", "UNIVERSITAS", "INSTITUSI", "UNIV", "NAMAPT"],
@@ -153,32 +202,24 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
         "DAYATAMPUNGSEKARANG": ["DAYATAMPUNG2024", "DAYATAMPUNG2025", "DAYATAMPUNG", "KUOTA", "TAMPUNG"],
         "DAYATAMPUNGSEBELUMNYA": ["DAYATAMPUNG2023", "DAYATAMPUNGSEBELUMNYA", "TAMPUNGSEBELUMNYA"],
         "PEMINATSEBELUMNYA": ["PEMINAT2023", "PEMINAT2024", "PEMINAT", "PENDAFTAR"],
-        "NILAI": ["SKOR", "NILAI", "NILAIRATA", "RATARATA", "AVERAGE", "NILAIMIN", "MINVLUE"],
-        "PASSINGGRADE": ["PG", "PASSINGGRADE", "PASSING", "SKORMIN", "MINSKOR", "NILAIPATOKAN"],
+        "NILAI": ["SKOR", "NILAI", "NILAIRATA", "RATARATA", "AVERAGE", "NILAIMIN"],
+        "PASSINGGRADE": ["PG", "PASSINGGRADE", "PASSING", "SKORMIN", "NILAIPATOKAN"],
       };
 
       const findColKey = (target: string, headerRow: string[], headerRowCleaned: string[]): string | null => {
         const targetClean = clean(target);
-        // Direct exact match
         const exactIdx = headerRowCleaned.indexOf(targetClean);
         if (exactIdx !== -1) return headerRow[exactIdx];
-
-        // Alias match
         const aliasList = ALIASES[targetClean] || [];
         for (const alias of aliasList) {
-          const aliasClean = clean(alias);
-          const aIdx = headerRowCleaned.indexOf(aliasClean);
+          const aIdx = headerRowCleaned.indexOf(clean(alias));
           if (aIdx !== -1) return headerRow[aIdx];
         }
-
-        // Partial match (header contains target or target contains header)
         const partIdx = headerRowCleaned.findIndex(h => h.includes(targetClean) || targetClean.includes(h));
         if (partIdx !== -1) return headerRow[partIdx];
-
         return null;
       };
 
-      // Find header row — require at least "program studi" OR "universitas" column
       let headerRowIndex = 0;
       let headerRow: string[] = [];
       let headerRowCleaned: string[] = [];
@@ -189,41 +230,23 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
         if (!Array.isArray(row)) continue;
         const rowStr = row.map(v => String(v ?? "").trim());
         const rowClean = rowStr.map(clean);
-
-        const hasProdi = findColKey("PROGRAMSTUDI", rowStr, rowClean);
-        const hasUniv = findColKey("UNIVERSITAS", rowStr, rowClean);
-
-        if (hasProdi || hasUniv) {
-          headerRowIndex = i;
-          headerRow = rowStr;
-          headerRowCleaned = rowClean;
-          console.log(`Header found at row ${i}: ${rowStr.join(" | ")}`);
-          break;
+        if (findColKey("PROGRAMSTUDI", rowStr, rowClean) || findColKey("UNIVERSITAS", rowStr, rowClean)) {
+          headerRowIndex = i; headerRow = rowStr; headerRowCleaned = rowClean; break;
         }
       }
 
-      // Positional fallback: treat row 0 as header if no named header found
       if (headerRow.length === 0) {
         const firstRow = rawRows[0];
         if (Array.isArray(firstRow) && firstRow.length >= 2) {
-          // Build synthetic header: col0=PROGRAM STUDI, col1=UNIVERSITAS, rest=positional
           headerRowIndex = 0;
-          headerRow = firstRow.map((_, idx) => {
-            if (idx === 0) return "PROGRAM STUDI";
-            if (idx === 1) return "UNIVERSITAS";
-            return `COL${idx}`;
-          });
+          headerRow = firstRow.map((_, idx) => idx === 0 ? "PROGRAM STUDI" : idx === 1 ? "UNIVERSITAS" : `COL${idx}`);
           headerRowCleaned = headerRow.map(clean);
           usePositionalFallback = true;
-          console.log(`No named header found. Using positional fallback: col0=PROGRAM STUDI, col1=UNIVERSITAS`);
         } else {
-          return res.status(400).json({
-            error: "Tidak dapat mendeteksi format file. Pastikan kolom minimal berisi 'Program Studi' dan data baris pertama tidak kosong.",
-          });
+          return res.status(400).json({ error: "Tidak dapat mendeteksi format file." });
         }
       }
 
-      // Map all needed columns
       const colProdi = findColKey("PROGRAMSTUDI", headerRow, headerRowCleaned) || headerRow[0];
       const colUniv = findColKey("UNIVERSITAS", headerRow, headerRowCleaned) || headerRow[1] || null;
       const colTingkat = findColKey("TINGKAT", headerRow, headerRowCleaned);
@@ -234,20 +257,11 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
       const colNilai = findColKey("NILAI", headerRow, headerRowCleaned);
       const colPG = findColKey("PASSINGGRADE", headerRow, headerRowCleaned);
 
-      console.log(`Column map: prodi=${colProdi}, univ=${colUniv}, tingkat=${colTingkat}, jurusan=${colJurusan}, dt=${colDT}, peminat=${colPeminat}, nilai=${colNilai}, pg=${colPG}, positionalFallback=${usePositionalFallback}`);
-
       const parseNum = (val: any): number => {
         if (val === undefined || val === null || val === "") return 0;
         if (typeof val === "number") return val;
         let s = String(val).replace(/%/g, "").trim();
         if (s.includes(",") && !s.includes(".")) s = s.replace(",", ".");
-        else if (s.includes(",") && s.includes(".")) {
-          if (s.lastIndexOf(".") < s.lastIndexOf(",")) {
-            s = s.replace(/\./g, "").replace(",", ".");
-          } else {
-            s = s.replace(/,/g, "");
-          }
-        }
         const n = parseFloat(s.replace(/[^0-9.-]/g, ""));
         return isNaN(n) ? 0 : n;
       };
@@ -256,17 +270,14 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
       const now = Date.now();
 
       if (usePositionalFallback) {
-        // No named header — parse all rows using positional indices (0=prodi, 1=univ, ...)
         for (let i = 0; i < rawRows.length; i++) {
           const row = rawRows[i];
           if (!Array.isArray(row)) continue;
           const programStudi = String(row[0] ?? "").trim();
-          const universitas = String(row[1] ?? "").trim();
           if (!programStudi) continue;
           parsed.push({
-            id: `prodi_${i}_${now}`,
-            programStudi,
-            universitas: universitas || "",
+            id: `prodi_${i}_${now}`, programStudi,
+            universitas: String(row[1] ?? "").trim(),
             tingkat: String(row[2] ?? "S-1").trim() || "S-1",
             jurusanSekolah: String(row[3] ?? "").trim(),
             dayaTampungSekarang: parseNum(row[4]),
@@ -277,26 +288,14 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
           });
         }
       } else {
-        // Named header — re-parse from header row using actual column keys
-        const dataRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
-          range: headerRowIndex,
-          defval: "",
-          raw: true,
-        });
-
+        const dataRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { range: headerRowIndex, defval: "", raw: true });
         for (let i = 0; i < dataRows.length; i++) {
           const row = dataRows[i];
           const programStudi = String(row[colProdi] ?? "").trim();
           const universitas = colUniv ? String(row[colUniv] ?? "").trim() : "";
-
-          // Skip empty rows or rows that are actually the header again
-          if (!programStudi) continue;
-          if (clean(programStudi) === "PROGRAMSTUDI") continue;
-
+          if (!programStudi || clean(programStudi) === "PROGRAMSTUDI") continue;
           parsed.push({
-            id: `prodi_${i}_${now}`,
-            programStudi,
-            universitas,
+            id: `prodi_${i}_${now}`, programStudi, universitas,
             tingkat: colTingkat ? String(row[colTingkat] ?? "S-1").trim() || "S-1" : "S-1",
             jurusanSekolah: colJurusan ? String(row[colJurusan] ?? "").trim() : "",
             dayaTampungSekarang: colDT ? parseNum(row[colDT]) : 0,
@@ -308,20 +307,10 @@ ${selectionDetails ? `- **Pilihan Jurusan**:\n${selectionDetails}` : ""}${releva
         }
       }
 
-      console.log(`Parsed ${parsed.length} program studi from ${filename}`);
       return res.json({ data: parsed, count: parsed.length });
     } catch (error: any) {
-      console.error("Upload error:", error);
       return res.status(500).json({ error: `Gagal memproses file: ${error.message}` });
     }
-  });
-
-  app.post("/api/login", (req, res) => {
-    const { username, password } = req.body;
-    if (username === "attin" && password === "snbp2026") {
-      return res.json({ success: true });
-    }
-    return res.status(401).json({ error: "Username atau password salah" });
   });
 
   const httpServer = createServer(app);

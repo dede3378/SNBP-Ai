@@ -63,9 +63,18 @@ export interface AnalysisResult {
   };
 }
 
+export interface CurrentUser {
+  id: string;
+  username: string;
+  role: "admin" | "user";
+  nama: string;
+}
+
 interface ConsultationContextValue {
   isLoggedIn: boolean;
   setIsLoggedIn: (v: boolean) => void;
+  currentUser: CurrentUser | null;
+  setCurrentUser: (u: CurrentUser | null) => void;
   masterData: ProgramStudi[];
   setMasterData: (data: ProgramStudi[]) => void;
   studentData: StudentData;
@@ -90,6 +99,7 @@ const STORAGE_KEYS = {
   ACHIEVEMENTS: '@snbp_achievements',
   SELECTIONS: '@snbp_selections',
   LOGGED_IN: '@snbp_logged_in',
+  CURRENT_USER: '@snbp_current_user',
 };
 
 const defaultStudent: StudentData = {
@@ -102,6 +112,7 @@ const defaultStudent: StudentData = {
 
 export function ConsultationProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUserState] = useState<CurrentUser | null>(null);
   const [masterData, setMasterDataState] = useState<ProgramStudi[]>([]);
   const [studentData, setStudentDataState] = useState<StudentData>(defaultStudent);
   const [grades, setGradesState] = useState<GradeEntry[]>([]);
@@ -115,13 +126,14 @@ export function ConsultationProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     try {
-      const [master, student, gradesData, achievementsData, selectionsData, loggedIn] = await Promise.all([
+      const [master, student, gradesData, achievementsData, selectionsData, loggedIn, userRaw] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.MASTER_DATA),
         AsyncStorage.getItem(STORAGE_KEYS.STUDENT_DATA),
         AsyncStorage.getItem(STORAGE_KEYS.GRADES),
         AsyncStorage.getItem(STORAGE_KEYS.ACHIEVEMENTS),
         AsyncStorage.getItem(STORAGE_KEYS.SELECTIONS),
         AsyncStorage.getItem(STORAGE_KEYS.LOGGED_IN),
+        AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
       ]);
       if (master) setMasterDataState(JSON.parse(master));
       if (student) setStudentDataState(JSON.parse(student));
@@ -129,6 +141,7 @@ export function ConsultationProvider({ children }: { children: ReactNode }) {
       if (achievementsData) setAchievementsState(JSON.parse(achievementsData));
       if (selectionsData) setSelectionsState(JSON.parse(selectionsData));
       if (loggedIn === 'true') setIsLoggedIn(true);
+      if (userRaw) setCurrentUserState(JSON.parse(userRaw));
     } catch (e) {
       console.error('Failed to load data:', e);
     }
@@ -165,6 +178,15 @@ export function ConsultationProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEYS.LOGGED_IN, v ? 'true' : 'false');
   };
 
+  const setCurrentUser = (u: CurrentUser | null) => {
+    setCurrentUserState(u);
+    if (u) {
+      AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(u));
+    } else {
+      AsyncStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    }
+  };
+
   const resetConsultation = () => {
     setStudentData(defaultStudent);
     setGrades([]);
@@ -172,10 +194,11 @@ export function ConsultationProvider({ children }: { children: ReactNode }) {
     setSelections([null, null]);
   };
 
-  // logout is async so callers can await it before navigating
   const logout = async () => {
     setIsLoggedIn(false);
+    setCurrentUserState(null);
     await AsyncStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'false');
+    await AsyncStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   };
 
   const averageGrade = useMemo(() => {
@@ -193,6 +216,8 @@ export function ConsultationProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     isLoggedIn,
     setIsLoggedIn: handleSetLoggedIn,
+    currentUser,
+    setCurrentUser,
     masterData,
     setMasterData,
     studentData,
@@ -206,7 +231,7 @@ export function ConsultationProvider({ children }: { children: ReactNode }) {
     averageGrade,
     logout,
     resetConsultation,
-  }), [isLoggedIn, masterData, studentData, grades, achievements, selections, averageGrade]);
+  }), [isLoggedIn, currentUser, masterData, studentData, grades, achievements, selections, averageGrade]);
 
   if (!loaded) return null;
 

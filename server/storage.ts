@@ -1,38 +1,86 @@
-import { type User, type InsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
+import * as fs from "fs";
+import * as path from "path";
 
-// modify the interface with any CRUD methods
-// you might need
-
-export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+export interface AppUser {
+  id: string;
+  username: string;
+  password: string;
+  role: "admin" | "user";
+  nama: string;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+const USERS_FILE = path.join(process.cwd(), "data", "users.json");
 
-  constructor() {
-    this.users = new Map();
-  }
+const DEFAULT_ADMIN: AppUser = {
+  id: "admin-1",
+  username: "attin",
+  password: "snbp2026",
+  role: "admin",
+  nama: "Admin Attin",
+};
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+function readUsers(): AppUser[] {
+  try {
+    if (!fs.existsSync(USERS_FILE)) {
+      fs.mkdirSync(path.dirname(USERS_FILE), { recursive: true });
+      fs.writeFileSync(USERS_FILE, JSON.stringify([DEFAULT_ADMIN], null, 2));
+      return [DEFAULT_ADMIN];
+    }
+    const raw = fs.readFileSync(USERS_FILE, "utf-8");
+    const arr = JSON.parse(raw) as AppUser[];
+    if (arr.length === 0) {
+      arr.push(DEFAULT_ADMIN);
+      writeUsers(arr);
+    }
+    return arr;
+  } catch {
+    return [DEFAULT_ADMIN];
   }
 }
 
-export const storage = new MemStorage();
+function writeUsers(users: AppUser[]) {
+  try {
+    fs.mkdirSync(path.dirname(USERS_FILE), { recursive: true });
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+  } catch (e) {
+    console.error("Failed to write users:", e);
+  }
+}
+
+export const storage = {
+  getAllUsers(): AppUser[] {
+    return readUsers();
+  },
+
+  getUserByUsername(username: string): AppUser | undefined {
+    return readUsers().find(u => u.username.toLowerCase() === username.toLowerCase());
+  },
+
+  createUser(data: Omit<AppUser, "id">): AppUser {
+    const users = readUsers();
+    const newUser: AppUser = { ...data, id: randomUUID() };
+    users.push(newUser);
+    writeUsers(users);
+    return newUser;
+  },
+
+  updateUser(id: string, updates: Partial<Omit<AppUser, "id">>): AppUser | null {
+    const users = readUsers();
+    const idx = users.findIndex(u => u.id === id);
+    if (idx === -1) return null;
+    users[idx] = { ...users[idx], ...updates };
+    writeUsers(users);
+    return users[idx];
+  },
+
+  deleteUser(id: string): boolean {
+    const users = readUsers();
+    const filtered = users.filter(u => u.id !== id);
+    if (filtered.length === users.length) return false;
+    writeUsers(filtered);
+    return true;
+  },
+};
+
+export type { AppUser as User };

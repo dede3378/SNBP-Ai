@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import * as Sharing from "expo-sharing";
 import Colors from "@/constants/colors";
 import { useConsultation, AnalysisResult, JurusanSelection, GradeEntry, Achievement } from "@/lib/consultation-context";
 import { useUniversityLogos } from "@/lib/university-logos";
+import { getApiUrl } from "@/lib/query-client";
 
 function isJurusanMismatch(studentJurusan: string, prodiJurusan: string): boolean {
   if (!studentJurusan || !prodiJurusan) return false;
@@ -58,89 +59,66 @@ function calculateChance(
     else if (ratio >= 0.85) nilaiScore = 10;
     else nilaiScore = 5;
   } else {
-    nilaiScore = avgGrade >= 85 ? 25 : avgGrade >= 80 ? 20 : avgGrade >= 75 ? 15 : 10;
+    nilaiScore = avgGrade >= 85 ? 22 : avgGrade >= 80 ? 18 : avgGrade >= 75 ? 14 : 8;
   }
 
   let dayaTampungScore = 0;
-  const dtNow = data.dayaTampungSekarang;
-  const dtPrev = data.dayaTampungSebelumnya;
-  if (dtNow > 0) {
-    if (dtNow >= dtPrev) dayaTampungScore = 15;
-    else if (dtNow >= dtPrev * 0.8) dayaTampungScore = 12;
-    else dayaTampungScore = 8;
-  } else {
-    dayaTampungScore = 10;
-  }
+  if (data.dayaTampungSekarang > 0) {
+    if (data.dayaTampungSekarang >= 100) dayaTampungScore = 15;
+    else if (data.dayaTampungSekarang >= 50) dayaTampungScore = 12;
+    else if (data.dayaTampungSekarang >= 20) dayaTampungScore = 8;
+    else dayaTampungScore = 5;
+  } else dayaTampungScore = 10;
 
   let peminatScore = 0;
-  const peminat = data.peminatSebelumnya;
-  if (dtNow > 0 && peminat > 0) {
-    const rasio = peminat / dtNow;
-    if (rasio <= 2) peminatScore = 20;
-    else if (rasio <= 4) peminatScore = 15;
-    else if (rasio <= 6) peminatScore = 10;
-    else if (rasio <= 10) peminatScore = 7;
+  if (data.peminatSebelumnya > 0 && data.dayaTampungSekarang > 0) {
+    const ratio = data.dayaTampungSekarang / data.peminatSebelumnya;
+    if (ratio >= 0.3) peminatScore = 20;
+    else if (ratio >= 0.2) peminatScore = 16;
+    else if (ratio >= 0.1) peminatScore = 12;
+    else if (ratio >= 0.05) peminatScore = 8;
     else peminatScore = 4;
-  } else {
-    peminatScore = 10;
-  }
+  } else peminatScore = 10;
 
   let prestasiScore = 0;
   achievements.forEach(a => {
-    let base = 0;
-    if (a.tingkat === "Internasional") base = 10;
-    else if (a.tingkat === "Nasional") base = 7;
-    else if (a.tingkat === "Provinsi") base = 5;
-    else base = 3;
-
-    if (a.juara === "Juara 1") base *= 1;
-    else if (a.juara === "Juara 2") base *= 0.8;
-    else base *= 0.6;
-
-    prestasiScore += base;
+    const level = a.tingkat?.toLowerCase();
+    const rank = a.juara?.toLowerCase();
+    if (level?.includes("internasional")) prestasiScore += rank?.includes("1") ? 8 : rank?.includes("2") ? 6 : 4;
+    else if (level?.includes("nasional")) prestasiScore += rank?.includes("1") ? 6 : rank?.includes("2") ? 4 : 3;
+    else if (level?.includes("provinsi")) prestasiScore += rank?.includes("1") ? 4 : 2;
+    else prestasiScore += 1;
   });
   prestasiScore = Math.min(prestasiScore, 20);
 
   let akreditasiScore = 0;
-  if (akreditasi === "A") akreditasiScore = 15;
-  else if (akreditasi === "B") akreditasiScore = 10;
+  const ak = akreditasi?.toUpperCase();
+  if (ak === "A" || ak === "UNGGUL") akreditasiScore = 15;
+  else if (ak === "B" || ak === "BAIK SEKALI") akreditasiScore = 11;
+  else if (ak === "C" || ak === "BAIK") akreditasiScore = 7;
   else akreditasiScore = 5;
 
-  const totalScore = nilaiScore + dayaTampungScore + peminatScore + prestasiScore + akreditasiScore;
-  const maxScore = 100;
-  let basePercentage = Math.min(Math.round((totalScore / maxScore) * 100), 99);
+  const mismatch = isJurusanMismatch(studentJurusan, data.jurusanSekolah || "");
 
-  const mismatch = isJurusanMismatch(studentJurusan, data.jurusanSekolah);
-  let finalPercentage = basePercentage;
-  if (mismatch) {
-    finalPercentage = Math.max(0, basePercentage - 13);
-  }
+  let total = nilaiScore + dayaTampungScore + peminatScore + prestasiScore + akreditasiScore;
+  if (mismatch) total = Math.max(0, total - 13);
 
-  let category = "Rendah";
-  if (finalPercentage >= 70) category = "Tinggi";
-  else if (finalPercentage >= 45) category = "Sedang";
+  const peluang = total >= 70 ? "Tinggi" : total >= 45 ? "Sedang" : "Rendah";
 
   return {
     pilihan: 0,
     universitas: selection.universitas,
     programStudi: selection.programStudi,
-    peluang: category,
-    persentase: finalPercentage,
+    peluang,
+    persentase: total,
     jurusanMismatch: mismatch,
-    details: {
-      nilaiScore,
-      dayaTampungScore,
-      peminatScore,
-      prestasiScore,
-      akreditasiScore,
-    },
+    details: { nilaiScore, dayaTampungScore, peminatScore, prestasiScore, akreditasiScore },
   };
 }
 
 function PeluangBadge({ peluang, persentase }: { peluang: string; persentase: number }) {
   const color = peluang === "Tinggi" ? Colors.success : peluang === "Sedang" ? Colors.warning : Colors.danger;
   const bgColor = peluang === "Tinggi" ? Colors.successLight : peluang === "Sedang" ? Colors.warningLight : Colors.dangerLight;
-
   return (
     <View style={[bStyles.container, { backgroundColor: bgColor }]}>
       <Text style={[bStyles.percentage, { color }]}>{persentase}%</Text>
@@ -158,37 +136,32 @@ const bStyles = StyleSheet.create({
 function UniversityLogo({ name, size = 36 }: { name: string; size?: number }) {
   const { getLogoUrl } = useUniversityLogos();
   const logoUrl = getLogoUrl(name);
-
   if (!logoUrl) {
     return (
-      <View style={{
-        width: size, height: size, borderRadius: size / 2,
-        backgroundColor: Colors.primary + "12",
-        justifyContent: "center", alignItems: "center",
-      }}>
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: Colors.primary + "12", justifyContent: "center", alignItems: "center" }}>
         <Ionicons name="school" size={size * 0.5} color={Colors.primary} />
       </View>
     );
   }
-
-  return (
-    <Image
-      source={{ uri: logoUrl }}
-      style={{ width: size, height: size, borderRadius: size / 2 }}
-      contentFit="cover"
-    />
-  );
+  return <Image source={{ uri: logoUrl }} style={{ width: size, height: size, borderRadius: size / 2 }} contentFit="cover" />;
 }
 
-const PRINT_SCALES = [70, 80, 90, 100, 110, 120];
+function generateDocNumber(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const rand = String(Math.floor(Math.random() * 900) + 100);
+  return `SNBP/${y}${m}${d}/${rand}`;
+}
 
 export default function AnalysisScreen() {
   const insets = useSafeAreaInsets();
-  const { selections, averageGrade, achievements, studentData, grades } = useConsultation();
+  const { selections, averageGrade, achievements, studentData } = useConsultation();
   const { getLogoUrl } = useUniversityLogos();
-  const [printScale, setPrintScale] = useState(100);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
+  const docNumber = useRef(generateDocNumber()).current;
 
   const results = useMemo(() => {
     const res: (AnalysisResult | null)[] = [null, null];
@@ -204,105 +177,215 @@ export default function AnalysisScreen() {
 
   const hasResults = results[0] || results[1];
 
-  const getRowAvg = (g: GradeEntry) => {
-    const vals = [g.semester1, g.semester2, g.semester3, g.semester4, g.semester5].filter(v => v > 0);
-    if (vals.length === 0) return 0;
-    return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100;
-  };
-
   const generateHTML = () => {
-    const achievementsRows = achievements.map((a, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${a.namaPrestasi}</td>
-        <td>${a.tingkat}</td>
-        <td>${a.juara}</td>
-      </tr>
-    `).join("");
+    const apiUrl = getApiUrl();
+    const logoUrl = `${apiUrl}api/logo/attin`;
 
-    const analysisCards = results.map((r, idx) => {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    const year = now.getFullYear();
+
+    const pilihanCards = results.map((r) => {
       if (!r) return "";
-      const color = r.peluang === "Tinggi" ? "#10B981" : r.peluang === "Sedang" ? "#F59E0B" : "#EF4444";
-      const bgColor = r.peluang === "Tinggi" ? "#ECFDF5" : r.peluang === "Sedang" ? "#FFFBEB" : "#FEF2F2";
-      const logoUrl = getLogoUrl(r.universitas);
-      const logoHtml = logoUrl
-        ? `<img src="${logoUrl}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
-        : `<div style="width:64px;height:64px;border-radius:50%;background:#E0F2FE;display:flex;align-items:center;justify-content:center;font-size:24px;color:#0EA5E9;flex-shrink:0;">&#127979;</div>`;
-      const mismatchHtml = r.jurusanMismatch
-        ? `<p style="background:#FEF3C7;color:#D97706;padding:6px 10px;border-radius:6px;font-size:11px;margin:8px 0 0 0;">Lintas Jurusan: Persentase dikurangi 13%</p>`
-        : "";
+      const color = r.peluang === "Tinggi" ? "#059669" : r.peluang === "Sedang" ? "#D97706" : "#DC2626";
+      const bgHeader = r.peluang === "Tinggi" ? "#ECFDF5" : r.peluang === "Sedang" ? "#FFFBEB" : "#FEF2F2";
+      const ptnLogoUrl = getLogoUrl(r.universitas);
+      const ptnLogoHtml = ptnLogoUrl
+        ? `<img src="${ptnLogoUrl}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;" />`
+        : `<div style="width:44px;height:44px;border-radius:50%;background:#E0F2FE;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🏛️</div>`;
+      const mismatchNote = r.jurusanMismatch
+        ? `<div style="background:#FEF3C7;color:#92400E;padding:6px 10px;border-radius:4px;font-size:10px;margin-top:8px;border-left:3px solid #F59E0B;">
+            ⚠️ Lintas Jurusan: Nilai akhir dikurangi 13 poin
+          </div>` : "";
       return `
-        <div style="border:2px solid ${color};border-radius:12px;padding:16px;margin-bottom:16px;background:${bgColor};">
-          <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
-            ${logoHtml}
+        <div style="border:1.5px solid ${color};border-radius:8px;overflow:hidden;margin-bottom:12px;">
+          <div style="background:${bgHeader};padding:10px 14px;display:flex;align-items:center;gap:12px;border-bottom:1px solid ${color}30;">
+            ${ptnLogoHtml}
             <div style="flex:1;">
-              <div style="font-size:11px;color:#6B7280;margin-bottom:2px;">Pilihan ${r.pilihan}</div>
-              <div style="font-size:16px;font-weight:700;color:#1A1A2E;margin-bottom:2px;">${r.programStudi}</div>
-              <div style="font-size:13px;color:#6B7280;">${r.universitas}</div>
+              <div style="font-size:9px;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Pilihan ${r.pilihan}</div>
+              <div style="font-size:14px;font-weight:700;color:#111827;">${r.programStudi}</div>
+              <div style="font-size:11px;color:#6B7280;margin-top:1px;">${r.universitas}</div>
             </div>
-            <div style="text-align:center;background:${color};color:white;border-radius:10px;padding:8px 12px;min-width:70px;">
-              <div style="font-size:18px;font-weight:700;">${r.persentase}%</div>
-              <div style="font-size:10px;">${r.peluang}</div>
+            <div style="text-align:center;background:${color};color:white;border-radius:8px;padding:8px 14px;min-width:64px;">
+              <div style="font-size:20px;font-weight:700;">${r.persentase}%</div>
+              <div style="font-size:9px;font-weight:600;margin-top:1px;">${r.peluang.toUpperCase()}</div>
             </div>
           </div>
-          ${mismatchHtml}
-          <table style="width:100%;margin-top:10px;font-size:12px;">
-            <tr><td>Skor Nilai Rapor</td><td style="text-align:right;">${r.details.nilaiScore}/30</td></tr>
-            <tr><td>Skor Daya Tampung</td><td style="text-align:right;">${r.details.dayaTampungScore}/15</td></tr>
-            <tr><td>Skor Rasio Peminat</td><td style="text-align:right;">${r.details.peminatScore}/20</td></tr>
-            <tr><td>Skor Prestasi</td><td style="text-align:right;">${r.details.prestasiScore}/20</td></tr>
-            <tr><td>Skor Akreditasi</td><td style="text-align:right;">${r.details.akreditasiScore}/15</td></tr>
+          ${mismatchNote}
+          <table style="width:100%;border-collapse:collapse;font-size:10px;">
+            <thead>
+              <tr style="background:#F9FAFB;">
+                <th style="padding:6px 12px;text-align:left;color:#6B7280;font-weight:600;border-bottom:1px solid #E5E7EB;">Komponen Penilaian</th>
+                <th style="padding:6px 12px;text-align:center;color:#6B7280;font-weight:600;border-bottom:1px solid #E5E7EB;">Skor</th>
+                <th style="padding:6px 12px;text-align:center;color:#6B7280;font-weight:600;border-bottom:1px solid #E5E7EB;">Maks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:5px 12px;border-bottom:1px solid #F3F4F6;">Nilai Rapor</td><td style="text-align:center;padding:5px;border-bottom:1px solid #F3F4F6;font-weight:600;">${r.details.nilaiScore}</td><td style="text-align:center;padding:5px;border-bottom:1px solid #F3F4F6;color:#9CA3AF;">30</td></tr>
+              <tr style="background:#F9FAFB;"><td style="padding:5px 12px;border-bottom:1px solid #F3F4F6;">Daya Tampung</td><td style="text-align:center;padding:5px;border-bottom:1px solid #F3F4F6;font-weight:600;">${r.details.dayaTampungScore}</td><td style="text-align:center;padding:5px;border-bottom:1px solid #F3F4F6;color:#9CA3AF;">15</td></tr>
+              <tr><td style="padding:5px 12px;border-bottom:1px solid #F3F4F6;">Rasio Peminat</td><td style="text-align:center;padding:5px;border-bottom:1px solid #F3F4F6;font-weight:600;">${r.details.peminatScore}</td><td style="text-align:center;padding:5px;border-bottom:1px solid #F3F4F6;color:#9CA3AF;">20</td></tr>
+              <tr style="background:#F9FAFB;"><td style="padding:5px 12px;border-bottom:1px solid #F3F4F6;">Prestasi</td><td style="text-align:center;padding:5px;border-bottom:1px solid #F3F4F6;font-weight:600;">${r.details.prestasiScore}</td><td style="text-align:center;padding:5px;border-bottom:1px solid #F3F4F6;color:#9CA3AF;">20</td></tr>
+              <tr><td style="padding:5px 12px;">Akreditasi</td><td style="text-align:center;padding:5px;font-weight:600;">${r.details.akreditasiScore}</td><td style="text-align:center;padding:5px;color:#9CA3AF;">15</td></tr>
+            </tbody>
+            <tfoot>
+              <tr style="background:${bgHeader};">
+                <td style="padding:7px 12px;font-weight:700;color:${color};">TOTAL SKOR</td>
+                <td style="text-align:center;padding:7px;font-weight:700;font-size:13px;color:${color};">${r.persentase}</td>
+                <td style="text-align:center;padding:7px;color:#9CA3AF;">100</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       `;
     }).join("");
 
-    const scaleFactor = printScale / 100;
+    const achievementRows = achievements.map((a, i) => {
+      const rowBg = i % 2 === 0 ? "" : "background:#F9FAFB;";
+      return `
+      <tr style="${rowBg}">
+        <td style="padding:5px 8px;border:1px solid #E5E7EB;">${i + 1}</td>
+        <td style="padding:5px 8px;border:1px solid #E5E7EB;">${a.namaPrestasi}</td>
+        <td style="padding:5px 8px;border:1px solid #E5E7EB;text-align:center;">${a.tingkat}</td>
+        <td style="padding:5px 8px;border:1px solid #E5E7EB;text-align:center;">${a.juara}</td>
+      </tr>
+      `;
+    }).join("");
 
     return `
       <!DOCTYPE html>
-      <html>
+      <html lang="id">
       <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-          body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 24px; color: #1A1A2E; font-size: ${13 * scaleFactor}px; }
-          h1 { text-align: center; color: #0EA5E9; font-size: ${18 * scaleFactor}px; margin-bottom: 4px; }
-          h2 { color: #0EA5E9; font-size: ${15 * scaleFactor}px; border-bottom: 2px solid #0EA5E9; padding-bottom: 4px; margin-top: 20px; }
-          .subtitle { text-align: center; color: #6B7280; font-size: ${12 * scaleFactor}px; margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-          th, td { border: 1px solid #E5E7EB; padding: ${6 * scaleFactor}px ${8 * scaleFactor}px; text-align: left; font-size: ${12 * scaleFactor}px; }
-          th { background-color: #0EA5E9; color: white; }
-          .info-table td { border: none; padding: ${4 * scaleFactor}px ${8 * scaleFactor}px; }
-          .info-table td:first-child { font-weight: 600; width: 40%; color: #6B7280; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111827; padding: 24px; line-height: 1.5; }
+          @media print { body { padding: 12px; } }
         </style>
       </head>
       <body>
-        <h1>HASIL KONSULTASI SNBP</h1>
-        <p class="subtitle">BIMBEL ATTIN</p>
 
-        <h2>Data Siswa</h2>
-        <table class="info-table">
-          <tr><td>Nama</td><td>${studentData.nama || '-'}</td></tr>
-          <tr><td>Asal Sekolah</td><td>${studentData.asalSekolah || '-'}</td></tr>
-          <tr><td>Akreditasi</td><td>${studentData.akreditasi || '-'}</td></tr>
-          <tr><td>Tipe Sekolah</td><td>${studentData.tipeSekolah || '-'}</td></tr>
-          <tr><td>Jurusan</td><td>${studentData.jurusanSekolah || '-'}</td></tr>
-          <tr><td>Rata-rata Rapor</td><td><strong>${averageGrade.toFixed(2)}</strong></td></tr>
+        <!-- HEADER -->
+        <table style="width:100%;border-bottom:2.5px solid #B91C1C;padding-bottom:12px;margin-bottom:14px;">
+          <tr>
+            <td style="width:50%;vertical-align:middle;">
+              <table><tr>
+                <td><img src="${logoUrl}" style="width:70px;height:70px;object-fit:cover;border-radius:50%;border:2px solid #B91C1C;" /></td>
+                <td style="padding-left:12px;vertical-align:middle;">
+                  <div style="font-size:20px;font-weight:700;color:#B91C1C;line-height:1.2;">BIMBEL ATTIN</div>
+                  <div style="font-size:10px;color:#6B7280;margin-top:2px;">Bimbingan Belajar Profesional</div>
+                </td>
+              </tr></table>
+            </td>
+            <td style="text-align:right;vertical-align:middle;">
+              <div style="display:inline-block;border:1.5px solid #B91C1C;border-radius:6px;padding:8px 14px;text-align:right;">
+                <div style="font-size:12px;font-weight:700;color:#B91C1C;letter-spacing:1px;">🔒 DOKUMEN RAHASIA</div>
+                <div style="font-size:10px;color:#374151;margin-top:4px;">No: ${docNumber}</div>
+                <div style="font-size:10px;color:#374151;">Tgl: ${dateStr}</div>
+              </div>
+            </td>
+          </tr>
         </table>
 
-        <h2>Prestasi</h2>
-        <table>
-          <thead><tr><th>No</th><th>Nama Prestasi</th><th>Tingkat</th><th>Juara</th></tr></thead>
-          <tbody>${achievementsRows || '<tr><td colspan="4" style="text-align:center;">Belum ada data</td></tr>'}</tbody>
+        <!-- TITLE -->
+        <div style="background:linear-gradient(135deg,#1E3A5F,#0EA5E9);color:white;text-align:center;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+          <div style="font-size:17px;font-weight:700;letter-spacing:0.5px;">HASIL KONSULTASI SNBP</div>
+          <div style="font-size:10px;opacity:0.85;margin-top:3px;">Seleksi Nasional Berdasarkan Prestasi — Tahun Akademik ${year}</div>
+        </div>
+
+        <!-- DATA SISWA -->
+        <div style="margin-bottom:14px;">
+          <div style="background:#1E3A5F;color:white;padding:6px 12px;border-radius:4px 4px 0 0;font-size:11px;font-weight:700;letter-spacing:0.3px;">DATA SISWA</div>
+          <table style="width:100%;border:1px solid #E5E7EB;border-top:none;border-collapse:collapse;">
+            <tr>
+              <td style="padding:6px 12px;width:50%;border-right:1px solid #E5E7EB;border-bottom:1px solid #E5E7EB;">
+                <span style="color:#6B7280;font-size:10px;">Nama Lengkap</span><br/>
+                <span style="font-weight:700;font-size:12px;">${studentData.nama || '—'}</span>
+              </td>
+              <td style="padding:6px 12px;border-bottom:1px solid #E5E7EB;">
+                <span style="color:#6B7280;font-size:10px;">Asal Sekolah</span><br/>
+                <span style="font-weight:600;font-size:12px;">${studentData.asalSekolah || '—'}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 12px;border-right:1px solid #E5E7EB;border-bottom:1px solid #E5E7EB;">
+                <span style="color:#6B7280;font-size:10px;">Jurusan Sekolah</span><br/>
+                <span style="font-weight:600;">${studentData.jurusanSekolah || '—'}</span>
+              </td>
+              <td style="padding:6px 12px;border-bottom:1px solid #E5E7EB;">
+                <span style="color:#6B7280;font-size:10px;">Akreditasi / Tipe Sekolah</span><br/>
+                <span style="font-weight:600;">${studentData.akreditasi || '—'} / ${studentData.tipeSekolah || '—'}</span>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding:6px 12px;background:#F0F9FF;">
+                <span style="color:#0369A1;font-size:10px;">Rata-rata Nilai Rapor (Semester 1–5)</span><br/>
+                <span style="font-weight:700;font-size:16px;color:#0369A1;">${averageGrade.toFixed(2)}</span>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- PRESTASI -->
+        ${achievements.length > 0 ? `
+        <div style="margin-bottom:14px;">
+          <div style="background:#1E3A5F;color:white;padding:6px 12px;border-radius:4px 4px 0 0;font-size:11px;font-weight:700;">PRESTASI</div>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #E5E7EB;border-top:none;font-size:10px;">
+            <thead>
+              <tr style="background:#F3F4F6;">
+                <th style="padding:5px 8px;border:1px solid #E5E7EB;width:30px;">No</th>
+                <th style="padding:5px 8px;border:1px solid #E5E7EB;text-align:left;">Nama Prestasi</th>
+                <th style="padding:5px 8px;border:1px solid #E5E7EB;width:80px;">Tingkat</th>
+                <th style="padding:5px 8px;border:1px solid #E5E7EB;width:60px;">Juara</th>
+              </tr>
+            </thead>
+            <tbody>${achievementRows}</tbody>
+          </table>
+        </div>
+        ` : ""}
+
+        <!-- ANALISIS -->
+        <div style="margin-bottom:14px;">
+          <div style="background:#1E3A5F;color:white;padding:6px 12px;border-radius:4px 4px 0 0;font-size:11px;font-weight:700;margin-bottom:10px;">ANALISIS PELUANG SNBP</div>
+          ${pilihanCards || '<p style="color:#9CA3AF;font-size:11px;padding:10px;">Belum ada pilihan jurusan.</p>'}
+        </div>
+
+        <!-- CATATAN -->
+        <div style="margin-bottom:20px;">
+          <div style="background:#1E3A5F;color:white;padding:6px 12px;border-radius:4px 4px 0 0;font-size:11px;font-weight:700;">CATATAN TIM KONSULTAN</div>
+          <div style="border:1px solid #E5E7EB;border-top:none;border-radius:0 0 4px 4px;min-height:90px;padding:10px;color:#9CA3AF;font-size:10px;font-style:italic;">
+            .......................................................................................................................................................<br/>
+            .......................................................................................................................................................<br/>
+            .......................................................................................................................................................<br/>
+            .......................................................................................................................................................
+          </div>
+        </div>
+
+        <!-- TANDA TANGAN -->
+        <table style="width:100%;margin-top:8px;">
+          <tr>
+            <td style="width:50%;text-align:center;padding:8px 20px;vertical-align:top;">
+              <div style="font-size:11px;color:#374151;font-weight:600;margin-bottom:4px;">Siswa</div>
+              <div style="height:60px;"></div>
+              <div style="border-top:1.5px solid #374151;padding-top:6px;">
+                <div style="font-size:11px;font-weight:600;">( ${studentData.nama || '...................................'} )</div>
+              </div>
+            </td>
+            <td style="width:50%;text-align:center;padding:8px 20px;vertical-align:top;">
+              <div style="font-size:11px;color:#374151;font-weight:600;margin-bottom:4px;">Tim Konsultan Bimbel Attin</div>
+              <div style="height:60px;"></div>
+              <div style="border-top:1.5px solid #374151;padding-top:6px;">
+                <div style="font-size:11px;font-weight:600;">( ................................... )</div>
+              </div>
+            </td>
+          </tr>
         </table>
 
-        <h2>Analisis Peluang SNBP</h2>
-        ${analysisCards || '<p>Belum ada pilihan jurusan</p>'}
+        <!-- FOOTER -->
+        <div style="text-align:center;font-size:9px;color:#9CA3AF;margin-top:20px;padding-top:10px;border-top:1px solid #E5E7EB;">
+          Dokumen ini dicetak oleh Aplikasi Konsultasi SNBP — Bimbel Attin &nbsp;|&nbsp; ${dateStr} &nbsp;|&nbsp; ${docNumber}
+        </div>
 
-        <p style="text-align:center;color:#9CA3AF;font-size:${10 * scaleFactor}px;margin-top:30px;">
-          Dokumen ini digenerate oleh Aplikasi Konsultasi SNBP - Bimbel Attin<br/>
-          Tanggal: ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
-        </p>
       </body>
       </html>
     `;
@@ -311,7 +394,7 @@ export default function AnalysisScreen() {
   const handlePrint = async () => {
     try {
       await Print.printAsync({ html: generateHTML() });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       console.error("Print error:", e);
     }
@@ -320,13 +403,11 @@ export default function AnalysisScreen() {
   const handleExportPDF = async () => {
     try {
       const { uri } = await Print.printToFileAsync({ html: generateHTML() });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri);
-      } else {
-        if (Platform.OS !== "web") {
-          Alert.alert("PDF Tersimpan", `File tersimpan di: ${uri}`);
-        }
+      } else if (Platform.OS !== "web") {
+        Alert.alert("PDF Tersimpan", `File tersimpan di: ${uri}`);
       }
     } catch (e) {
       console.error("Export PDF error:", e);
@@ -360,7 +441,7 @@ export default function AnalysisScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + webBottomInset + 140 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + webBottomInset + 120 }]}
         showsVerticalScrollIndicator={false}
       >
         {!hasResults ? (
@@ -406,9 +487,7 @@ export default function AnalysisScreen() {
                   {r.jurusanMismatch && (
                     <View style={styles.mismatchBanner}>
                       <Ionicons name="warning" size={16} color={Colors.warning} />
-                      <Text style={styles.mismatchBannerText}>
-                        Lintas Jurusan: Persentase dikurangi 13%
-                      </Text>
+                      <Text style={styles.mismatchBannerText}>Lintas Jurusan: Persentase dikurangi 13%</Text>
                     </View>
                   )}
 
@@ -428,19 +507,6 @@ export default function AnalysisScreen() {
 
       {hasResults && (
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + webBottomInset + 12 }]}>
-          <View style={styles.scaleRow}>
-            <Feather name="zoom-in" size={14} color={Colors.textSecondary} />
-            <Text style={styles.scaleLabel}>Ukuran:</Text>
-            {PRINT_SCALES.map(s => (
-              <Pressable
-                key={s}
-                style={[styles.scaleChip, printScale === s && styles.scaleChipActive]}
-                onPress={() => setPrintScale(s)}
-              >
-                <Text style={[styles.scaleChipText, printScale === s && styles.scaleChipTextActive]}>{s}%</Text>
-              </Pressable>
-            ))}
-          </View>
           <View style={styles.btnRow}>
             <Pressable
               style={({ pressed }) => [styles.exportBtn, styles.printBtn, pressed && { opacity: 0.9 }]}
@@ -501,12 +567,9 @@ const styles = StyleSheet.create({
   resultPTN: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 2 },
   mismatchBanner: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: Colors.warningLight, borderRadius: 8,
-    padding: 10, marginBottom: 14,
+    backgroundColor: Colors.warningLight, borderRadius: 8, padding: 10, marginBottom: 14,
   },
-  mismatchBannerText: {
-    fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.warning, flex: 1,
-  },
+  mismatchBannerText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.warning, flex: 1 },
   scoresSection: { gap: 10 },
   scoreRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   scoreLabel: { width: 90, fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary },
@@ -515,20 +578,8 @@ const styles = StyleSheet.create({
   scoreValue: { width: 40, fontSize: 11, fontFamily: "Inter_600SemiBold", color: Colors.text, textAlign: "right" },
   bottomBar: {
     position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: Colors.white,
-    borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingHorizontal: 16, paddingTop: 10,
-    gap: 8,
+    borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingHorizontal: 16, paddingTop: 12,
   },
-  scaleRow: {
-    flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap",
-  },
-  scaleLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.textSecondary },
-  scaleChip: {
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
-    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
-  },
-  scaleChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  scaleChipText: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.textSecondary },
-  scaleChipTextActive: { color: Colors.white },
   btnRow: { flexDirection: "row", gap: 10 },
   exportBtn: {
     flex: 1, flexDirection: "row", borderRadius: 12, paddingVertical: 14,

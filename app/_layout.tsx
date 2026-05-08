@@ -17,7 +17,7 @@ import Colors from "@/constants/colors";
 SplashScreen.preventAutoHideAsync();
 
 function GlobalHeader() {
-  const { resetConsultation, isLoggedIn, logout } = useConsultation();
+  const { resetConsultation, isLoggedIn, logout, currentUser } = useConsultation();
 
   if (!isLoggedIn) return null;
 
@@ -27,8 +27,8 @@ function GlobalHeader() {
       "Semua data yang telah dimasukkan akan dihapus. Lanjutkan?",
       [
         { text: "Batal", style: "cancel" },
-        { 
-          text: "Ya, Mulai Baru", 
+        {
+          text: "Ya, Mulai Baru",
           onPress: () => {
             if (resetConsultation) resetConsultation();
             router.replace("/student");
@@ -64,14 +64,29 @@ function GlobalHeader() {
 
   return (
     <View style={headerStyles.container}>
-      <Pressable onPress={handleNew} style={headerStyles.btn}>
-        <Ionicons name="refresh" size={18} color={Colors.primary} />
-        <Text style={headerStyles.btnText}>Baru</Text>
-      </Pressable>
-      <Pressable onPress={handleExit} style={headerStyles.btn}>
-        <Ionicons name="log-out-outline" size={18} color={Colors.danger} />
-        <Text style={[headerStyles.btnText, { color: Colors.danger }]}>Exit</Text>
-      </Pressable>
+      <View style={headerStyles.leftGroup}>
+        {currentUser && (
+          <Text style={headerStyles.userLabel}>
+            {currentUser.role === "admin" ? "👤 " : ""}{currentUser.nama || currentUser.username}
+          </Text>
+        )}
+      </View>
+      <View style={headerStyles.rightGroup}>
+        {currentUser?.role === "admin" && (
+          <Pressable onPress={() => router.push("/admin")} style={headerStyles.btn}>
+            <Ionicons name="people" size={16} color="#C00000" />
+            <Text style={[headerStyles.btnText, { color: "#C00000" }]}>Admin</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={handleNew} style={headerStyles.btn}>
+          <Ionicons name="refresh" size={16} color={Colors.primary} />
+          <Text style={headerStyles.btnText}>Baru</Text>
+        </Pressable>
+        <Pressable onPress={handleExit} style={headerStyles.btn}>
+          <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
+          <Text style={[headerStyles.btnText, { color: Colors.danger }]}>Exit</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -79,14 +94,26 @@ function GlobalHeader() {
 const headerStyles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
     marginTop: Platform.OS === 'web' ? 0 : 40,
+  },
+  leftGroup: {
+    flex: 1,
+  },
+  rightGroup: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  userLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: Colors.textSecondary,
   },
   btn: {
     flexDirection: "row",
@@ -111,6 +138,7 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="dashboard" />
+        <Stack.Screen name="admin" />
         <Stack.Screen name="upload" />
         <Stack.Screen name="student" />
         <Stack.Screen name="grades" />
