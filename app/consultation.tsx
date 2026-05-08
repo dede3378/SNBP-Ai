@@ -238,7 +238,7 @@ export default function ConsultationScreen() {
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Konselor SNBP AI</Text>
-          <Text style={styles.headerSub}>Bimbel Attin • GPT-4o Vision</Text>
+          <Text style={styles.headerSub}>Bimbel Attin</Text>
         </View>
         <View style={styles.onlineDot} />
       </View>
