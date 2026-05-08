@@ -8,6 +8,7 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -69,7 +70,11 @@ export default function LoginScreen() {
         <View style={[styles.container, { paddingTop: insets.top + webTopInset + 40, paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20 }]}>
           <View style={styles.header}>
             <View style={styles.iconCircle}>
-              <Ionicons name="school" size={40} color={Colors.primary} />
+              <Image
+                source={require("../assets/images/icon.png")}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
             <Text style={styles.title}>Konsultasi SNBP</Text>
             <Text style={styles.subtitle}>Bimbel Attin</Text>
@@ -156,9 +161,9 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: Colors.white,
     justifyContent: "center",
     alignItems: "center",
@@ -168,6 +173,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
+    overflow: "hidden",
+  },
+  logoImage: {
+    width: 88,
+    height: 88,
   },
   title: {
     fontSize: 28,
