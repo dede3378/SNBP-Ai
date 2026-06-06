@@ -187,649 +187,378 @@ export default function AnalysisScreen() {
 
     const pilihanCards = results.map((r) => {
       if (!r) return "";
-      const accentColor = r.peluang === "Tinggi" ? "#059669" : r.peluang === "Sedang" ? "#D97706" : "#DC2626";
-      const scoreBg = r.peluang === "Tinggi" ? "#059669" : r.peluang === "Sedang" ? "#D97706" : "#DC2626";
+      const isT = r.peluang === "Tinggi", isS = r.peluang === "Sedang";
+      const accentColor = isT ? "#059669" : isS ? "#d97706" : "#dc2626";
+      const scoreBg    = isT ? "#059669" : isS ? "#d97706" : "#dc2626";
+      const peluangBg  = isT ? "#d1fae5" : isS ? "#fef3c7" : "#fee2e2";
+      const peluangFg  = isT ? "#065f46" : isS ? "#92400e" : "#991b1b";
+
       const ptnLogoUrl = getLogoUrl(r.universitas);
       const ptnLogoHtml = ptnLogoUrl
-        ? `<img class="pilihan-logo" src="${ptnLogoUrl}" />`
-        : `<div style="width:48px;height:48px;border-radius:50%;background:#E0F2FE;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;border:2px solid #E5E7EB;">&#127963;</div>`;
+        ? `<img class="pil-logo" src="${ptnLogoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="pil-logo-fb" style="display:none;">&#127963;</div>`
+        : `<div class="pil-logo-fb">&#127963;</div>`;
+
+      const data = r.pilihan <= selections.length ? selections[r.pilihan - 1]?.programStudiData : null;
+      const metaChips = [
+        data?.tingkat ? `<span class="pil-chip" style="background:#eff6ff;color:#1d4ed8;">${data.tingkat}</span>` : "",
+        data?.jurusanSekolah ? `<span class="pil-chip" style="background:#f0fdf4;color:#166534;">${data.jurusanSekolah}</span>` : "",
+        data?.dayaTampungSekarang ? `<span class="pil-chip" style="background:#f8fafc;color:#475569;">DT: ${data.dayaTampungSekarang}</span>` : "",
+        data?.peminatSebelumnya ? `<span class="pil-chip" style="background:#f8fafc;color:#475569;">Peminat: ${data.peminatSebelumnya}</span>` : "",
+      ].filter(Boolean).join("");
 
       const scores = [
-        { name: "Nilai Rapor", val: r.details.nilaiScore, max: 30, color: "#3B82F6" },
-        { name: "Daya Tampung", val: r.details.dayaTampungScore, max: 15, color: "#8B5CF6" },
-        { name: "Rasio Peminat", val: r.details.peminatScore, max: 20, color: "#06B6D4" },
-        { name: "Prestasi", val: r.details.prestasiScore, max: 20, color: "#F59E0B" },
-        { name: "Akreditasi", val: r.details.akreditasiScore, max: 15, color: "#10B981" },
+        { name: "Nilai Rapor",    val: r.details.nilaiScore,        max: 30, color: "#3b82f6" },
+        { name: "Daya Tampung",   val: r.details.dayaTampungScore,  max: 15, color: "#8b5cf6" },
+        { name: "Rasio Peminat",  val: r.details.peminatScore,      max: 20, color: "#06b6d4" },
+        { name: "Prestasi",       val: r.details.prestasiScore,     max: 20, color: "#f59e0b" },
+        { name: "Akreditasi",     val: r.details.akreditasiScore,   max: 15, color: "#10b981" },
       ];
-      const scoreBars = scores.map((s) => {
+      const scoreRows = scores.map((s) => {
         const pct = Math.round((s.val / s.max) * 100);
-        return `
-          <div class="detail-item">
-            <div class="detail-score">${s.val}<span class="detail-max">/${s.max}</span></div>
-            <div class="detail-bar-wrap">
-              <div class="detail-bar-fill" style="width:${pct}%;background:${s.color};"></div>
-            </div>
-            <div class="detail-name">${s.name}</div>
-          </div>
-        `;
+        return `<div class="score-row">
+          <div class="score-name">${s.name}</div>
+          <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${pct}%;background:${s.color};"></div></div>
+          <div class="score-nums">${s.val}<span class="score-max">/${s.max}</span></div>
+        </div>`;
       }).join("");
 
       const mismatchHtml = r.jurusanMismatch
-        ? `<div class="mismatch-note">&#9888; Lintas Jurusan: skor dikurangi 13 poin</div>`
-        : "";
+        ? `<div class="mismatch-tag">&#9888; Lintas Jurusan: skor dikurangi 13 poin</div>` : "";
 
-      return `
-        <div class="pilihan-card">
-          <div class="pilihan-top">
-            <div class="pilihan-accent" style="background:${accentColor};"></div>
-            <div class="pilihan-info">
-              ${ptnLogoHtml}
-              <div class="pilihan-text">
-                <div class="pilihan-num" style="color:${accentColor};">Pilihan ${r.pilihan}</div>
-                <div class="pilihan-prodi">${r.programStudi}</div>
-                <div class="pilihan-univ">${r.universitas}</div>
-              </div>
-              <div class="pilihan-score" style="background:${scoreBg};">
-                <div class="score-pct" style="color:white;">${r.persentase}%</div>
-                <div class="score-label" style="color:rgba(255,255,255,0.85);">${r.peluang}</div>
-              </div>
+      return `<div class="pil-card">
+        <div class="pil-header">
+          <div class="pil-color-bar" style="background:${accentColor};"></div>
+          <div class="pil-main">
+            ${ptnLogoHtml}
+            <div class="pil-info">
+              <div class="pil-tag" style="color:${accentColor};">&#9679; Pilihan ${r.pilihan}</div>
+              <div class="pil-prodi">${r.programStudi}</div>
+              <div class="pil-univ">${r.universitas}</div>
+              ${metaChips ? `<div class="pil-meta">${metaChips}</div>` : ""}
+            </div>
+            <div class="pil-score-box" style="background:${scoreBg};">
+              <div class="pil-pct">${r.persentase}%</div>
+              <div class="pil-pct-lbl">${r.peluang}</div>
             </div>
           </div>
-          <div class="pilihan-detail">
-            ${mismatchHtml}
-            <div class="detail-grid">${scoreBars}</div>
-          </div>
         </div>
-      `;
+        <div class="score-strip">
+          <div class="score-strip-title">Rincian Penilaian &mdash; Total ${r.persentase} / 100 poin</div>
+          ${scoreRows}
+          ${mismatchHtml}
+        </div>
+      </div>`;
     }).join("");
 
     const achievementRows = achievements.map((a, i) => {
-      const rowBg = i % 2 === 0 ? "" : "background:#F9FAFB;";
-      return `
-      <tr style="${rowBg}">
-        <td style="padding:5px 8px;border:1px solid #E5E7EB;">${i + 1}</td>
-        <td style="padding:5px 8px;border:1px solid #E5E7EB;">${a.namaPrestasi}</td>
-        <td style="padding:5px 8px;border:1px solid #E5E7EB;text-align:center;">${a.tingkat}</td>
-        <td style="padding:5px 8px;border:1px solid #E5E7EB;text-align:center;">${a.juara}</td>
-      </tr>
-      `;
+      const t = (a.tingkat || "").toLowerCase();
+      const badgeCls = t.includes("internasional") ? "p-intl"
+        : t.includes("nasional") ? "p-nas"
+        : t.includes("provinsi") ? "p-prov"
+        : "p-other";
+      return `<tr>
+        <td style="width:28px;text-align:center;">${i + 1}</td>
+        <td>${a.namaPrestasi}</td>
+        <td style="text-align:center;"><span class="p-badge ${badgeCls}">${a.tingkat}</span></td>
+        <td style="text-align:center;font-weight:600;">${a.juara}</td>
+      </tr>`;
     }).join("");
 
     const peluangEmoji = (p: string) => p === "Tinggi" ? "🟢" : p === "Sedang" ? "🟡" : "🔴";
 
-    return `
-      <!DOCTYPE html>
-      <html lang="id">
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    return `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',Arial,sans-serif;font-size:11px;color:#1a2332;background:#fff;line-height:1.5;}
+.page{max-width:794px;margin:0 auto;background:#fff;}
 
-          * { box-sizing: border-box; margin: 0; padding: 0; }
+/* ══ HEADER ══ */
+.hdr{background:linear-gradient(135deg,#6b0000 0%,#9b0000 40%,#c0392b 100%);padding:0;}
+.hdr-top{display:flex;align-items:center;padding:18px 28px 14px;gap:18px;}
+.hdr-logo-wrap{background:rgba(255,255,255,0.12);border-radius:50%;padding:4px;border:2.5px solid rgba(255,255,255,0.35);}
+.hdr-logo{width:72px;height:72px;border-radius:50%;object-fit:cover;display:block;}
+.hdr-logo-fallback{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:28px;}
+.hdr-info{flex:1;}
+.hdr-org{font-size:24px;font-weight:900;color:#fff;letter-spacing:1px;text-transform:uppercase;line-height:1;}
+.hdr-tagline{font-size:9.5px;color:rgba(255,255,255,0.75);margin-top:4px;letter-spacing:0.4px;}
+.hdr-right{text-align:right;}
+.hdr-doc-box{background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.3);border-radius:8px;padding:10px 16px;}
+.hdr-doc-title{font-size:10px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1.5px;}
+.hdr-doc-no{font-size:13px;font-weight:700;color:#fff;margin-top:3px;}
+.hdr-doc-date{font-size:9.5px;color:rgba(255,255,255,0.7);margin-top:2px;}
+.hdr-divider{height:1px;background:rgba(255,255,255,0.15);margin:0 28px;}
+.hdr-title-band{padding:12px 28px 16px;display:flex;align-items:center;justify-content:center;flex-direction:column;}
+.hdr-title{font-size:17px;font-weight:800;color:#fff;letter-spacing:2px;text-transform:uppercase;}
+.hdr-subtitle{font-size:9.5px;color:rgba(255,255,255,0.65);margin-top:4px;letter-spacing:0.5px;}
+.hdr-accent-bar{height:4px;background:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,0.6) 30%,rgba(255,255,255,0.6) 70%,rgba(255,255,255,0) 100%);width:220px;margin-top:8px;border-radius:2px;}
 
-          body {
-            font-family: 'Inter', Arial, sans-serif;
-            font-size: 11px;
-            color: #1F2937;
-            background: #fff;
-            line-height: 1.6;
-          }
+/* ══ BODY ══ */
+.body{padding:20px 28px 16px;}
 
-          .page {
-            max-width: 780px;
-            margin: 0 auto;
-            padding: 0;
-          }
+/* ── section header ── */
+.sec{margin-bottom:16px;}
+.sec-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.sec-bar{width:5px;height:22px;background:linear-gradient(180deg,#c0392b,#8b0000);border-radius:3px;flex-shrink:0;}
+.sec-title{font-size:10px;font-weight:800;color:#1a2332;text-transform:uppercase;letter-spacing:1.2px;}
+.sec-line{flex:1;height:1px;background:linear-gradient(90deg,#d1d5db,transparent);}
 
-          /* ── HEADER ── */
-          .doc-header {
-            background: linear-gradient(135deg, #7F0000 0%, #B91C1C 50%, #DC2626 100%);
-            padding: 20px 28px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-          }
-          .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-          }
-          .header-logo {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid rgba(255,255,255,0.5);
-            background: white;
-          }
-          .header-brand-text .org-name {
-            font-size: 22px;
-            font-weight: 800;
-            color: white;
-            letter-spacing: 0.5px;
-            line-height: 1.1;
-          }
-          .header-brand-text .org-sub {
-            font-size: 10px;
-            color: rgba(255,255,255,0.8);
-            margin-top: 2px;
-            letter-spacing: 0.3px;
-          }
-          .header-badge {
-            text-align: right;
-          }
-          .badge-confidential {
-            display: inline-block;
-            background: rgba(255,255,255,0.15);
-            border: 1.5px solid rgba(255,255,255,0.4);
-            border-radius: 8px;
-            padding: 8px 14px;
-            backdrop-filter: blur(4px);
-          }
-          .badge-confidential .conf-label {
-            font-size: 11px;
-            font-weight: 700;
-            color: #FEF2F2;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-          }
-          .badge-confidential .conf-no {
-            font-size: 10px;
-            color: rgba(255,255,255,0.85);
-            margin-top: 4px;
-          }
+/* ── student card ── */
+.stu-card{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;}
+.stu-row{display:flex;border-bottom:1px solid #e2e8f0;}
+.stu-row:last-of-type{border-bottom:none;}
+.stu-cell{flex:1;padding:9px 13px;border-right:1px solid #e2e8f0;}
+.stu-cell:last-child{border-right:none;}
+.stu-lbl{font-size:8.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:2px;}
+.stu-val{font-size:11.5px;font-weight:600;color:#1a2332;}
+.avg-strip{background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;}
+.avg-lbl{font-size:9.5px;color:rgba(255,255,255,0.8);font-weight:500;}
+.avg-num{font-size:28px;font-weight:900;color:#fff;line-height:1;}
+.avg-unit{font-size:9px;color:rgba(255,255,255,0.6);margin-top:1px;}
 
-          /* ── TITLE BANNER ── */
-          .title-banner {
-            background: #1E3A5F;
-            text-align: center;
-            padding: 14px 20px;
-            border-bottom: 4px solid #B91C1C;
-          }
-          .title-banner h1 {
-            font-size: 18px;
-            font-weight: 800;
-            color: white;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-          }
-          .title-banner p {
-            font-size: 10px;
-            color: rgba(255,255,255,0.75);
-            margin-top: 3px;
-          }
+/* ── prestasi table ── */
+.ptab{width:100%;border-collapse:collapse;}
+.ptab thead tr{background:#f8fafc;}
+.ptab th{padding:7px 10px;font-size:8.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;border-bottom:2px solid #e2e8f0;text-align:left;}
+.ptab td{padding:7px 10px;border-bottom:1px solid #f1f5f9;color:#374151;font-size:10px;}
+.ptab tbody tr:last-child td{border-bottom:none;}
+.ptab tbody tr:nth-child(even){background:#fafafa;}
+.p-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:8.5px;font-weight:600;}
+.p-intl{background:#fef3c7;color:#92400e;}
+.p-nas{background:#dbeafe;color:#1e40af;}
+.p-prov{background:#d1fae5;color:#065f46;}
+.p-other{background:#f3f4f6;color:#374151;}
 
-          /* ── BODY CONTENT ── */
-          .doc-body {
-            padding: 20px 28px;
-          }
+/* ── pilihan card ── */
+.pil-card{margin-bottom:14px;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,0.06);}
+.pil-header{display:flex;align-items:stretch;}
+.pil-color-bar{width:8px;flex-shrink:0;}
+.pil-main{flex:1;padding:14px 16px;background:#fff;display:flex;align-items:center;gap:14px;}
+.pil-logo{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;flex-shrink:0;}
+.pil-logo-fb{width:52px;height:52px;border-radius:50%;background:#f1f5f9;border:2px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.pil-info{flex:1;min-width:0;}
+.pil-tag{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:3px;}
+.pil-prodi{font-size:14.5px;font-weight:800;color:#111827;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pil-univ{font-size:10px;color:#6b7280;margin-top:3px;font-weight:500;}
+.pil-meta{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;}
+.pil-chip{font-size:8.5px;padding:2px 8px;border-radius:10px;font-weight:600;}
+.pil-score-box{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 20px;min-width:88px;text-align:center;}
+.pil-pct{font-size:30px;font-weight:900;line-height:1;color:#fff;}
+.pil-pct-lbl{font-size:9px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.8px;text-transform:uppercase;margin-top:3px;}
 
-          /* ── SECTION HEADER ── */
-          .section {
-            margin-bottom: 18px;
-          }
-          .section-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-          }
-          .section-bar {
-            width: 4px;
-            height: 18px;
-            background: #B91C1C;
-            border-radius: 2px;
-          }
-          .section-title {
-            font-size: 11px;
-            font-weight: 700;
-            color: #1E3A5F;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-          }
-          .section-line {
-            flex: 1;
-            height: 1px;
-            background: linear-gradient(to right, #E5E7EB, transparent);
-          }
+/* ── score detail strip ── */
+.score-strip{background:#f8fafc;border-top:1px solid #e5e7eb;padding:12px 16px;}
+.score-strip-title{font-size:8.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;}
+.score-row{display:flex;align-items:center;gap:10px;margin-bottom:5px;}
+.score-row:last-child{margin-bottom:0;}
+.score-name{font-size:9.5px;color:#374151;font-weight:500;width:90px;flex-shrink:0;}
+.score-bar-wrap{flex:1;height:7px;background:#e5e7eb;border-radius:4px;overflow:hidden;}
+.score-bar-fill{height:100%;border-radius:4px;}
+.score-nums{font-size:9.5px;font-weight:700;color:#1a2332;width:36px;text-align:right;flex-shrink:0;}
+.score-max{font-size:8.5px;color:#9ca3af;font-weight:400;}
+.mismatch-tag{background:#fffbeb;border-left:3px solid #f59e0b;padding:5px 10px;font-size:9px;color:#92400e;font-weight:600;margin-top:8px;border-radius:0 4px 4px 0;}
 
-          /* ── DATA SISWA ── */
-          .student-card {
-            background: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-radius: 10px;
-            overflow: hidden;
-          }
-          .student-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            border-collapse: collapse;
-          }
-          .student-cell {
-            padding: 10px 14px;
-            border-right: 1px solid #E2E8F0;
-            border-bottom: 1px solid #E2E8F0;
-          }
-          .student-cell:nth-child(even) { border-right: none; }
-          .student-cell:nth-last-child(-n+2) { border-bottom: none; }
-          .cell-label {
-            font-size: 9px;
-            font-weight: 600;
-            color: #94A3B8;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 3px;
-          }
-          .cell-value {
-            font-size: 12px;
-            font-weight: 600;
-            color: #1F2937;
-          }
-          .student-avg-bar {
-            background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-            padding: 10px 14px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-top: 1px solid #BFDBFE;
-          }
-          .avg-label { font-size: 10px; color: #1D4ED8; font-weight: 500; }
-          .avg-value { font-size: 24px; font-weight: 800; color: #1D4ED8; }
+/* ── catatan ── */
+.catatan{border:1.5px dashed #cbd5e1;border-radius:8px;padding:12px 14px;min-height:88px;background:#fafcff;}
+.catatan-line{border-bottom:1px solid #e2e8f0;height:24px;}
 
-          /* ── PRESTASI ── */
-          .prestasi-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 10px;
-          }
-          .prestasi-table thead tr {
-            background: #F1F5F9;
-          }
-          .prestasi-table th {
-            padding: 7px 10px;
-            font-weight: 600;
-            color: #64748B;
-            text-align: left;
-            border-bottom: 2px solid #E2E8F0;
-            text-transform: uppercase;
-            font-size: 9px;
-            letter-spacing: 0.5px;
-          }
-          .prestasi-table td {
-            padding: 7px 10px;
-            border-bottom: 1px solid #F1F5F9;
-            color: #374151;
-          }
-          .prestasi-table tbody tr:last-child td { border-bottom: none; }
-          .prestasi-table tbody tr:nth-child(odd) { background: #FAFAFA; }
-          .badge-tingkat {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 9px;
-            font-weight: 600;
-          }
+/* ── tanda tangan ── */
+.ttd-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:16px;}
+.ttd-box{text-align:center;padding:0 8px;}
+.ttd-city{font-size:9.5px;color:#6b7280;margin-bottom:1px;}
+.ttd-role{font-size:10.5px;font-weight:700;color:#374151;margin-bottom:54px;}
+.ttd-line{border-top:1.5px solid #9ca3af;padding-top:6px;}
+.ttd-name{font-size:10.5px;font-weight:700;color:#1a2332;}
 
-          /* ── PILIHAN CARDS ── */
-          .pilihan-card {
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 14px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-          }
-          .pilihan-top {
-            display: flex;
-            align-items: stretch;
-          }
-          .pilihan-accent {
-            width: 6px;
-            flex-shrink: 0;
-          }
-          .pilihan-info {
-            flex: 1;
-            padding: 12px 14px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: white;
-            border: 1px solid #E5E7EB;
-            border-left: none;
-          }
-          .pilihan-logo {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid #E5E7EB;
-            flex-shrink: 0;
-          }
-          .pilihan-text { flex: 1; }
-          .pilihan-num {
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 2px;
-          }
-          .pilihan-prodi {
-            font-size: 14px;
-            font-weight: 700;
-            color: #111827;
-            line-height: 1.2;
-          }
-          .pilihan-univ {
-            font-size: 10px;
-            color: #6B7280;
-            margin-top: 2px;
-          }
-          .pilihan-score {
-            text-align: center;
-            padding: 10px 16px;
-            min-width: 80px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-          }
-          .score-pct {
-            font-size: 26px;
-            font-weight: 800;
-            line-height: 1;
-          }
-          .score-label {
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            margin-top: 3px;
-          }
-          .pilihan-detail {
-            background: #F9FAFB;
-            border: 1px solid #E5E7EB;
-            border-top: none;
-            padding: 10px 14px;
-          }
-          .detail-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-          }
-          .detail-item { text-align: center; }
-          .detail-bar-wrap {
-            height: 6px;
-            background: #E5E7EB;
-            border-radius: 3px;
-            overflow: hidden;
-            margin: 4px 0;
-          }
-          .detail-bar-fill {
-            height: 100%;
-            border-radius: 3px;
-          }
-          .detail-score {
-            font-size: 11px;
-            font-weight: 700;
-            color: #1F2937;
-          }
-          .detail-max {
-            font-size: 9px;
-            color: #9CA3AF;
-          }
-          .detail-name {
-            font-size: 8.5px;
-            color: #6B7280;
-            font-weight: 500;
-          }
-          .mismatch-note {
-            background: #FFFBEB;
-            border-left: 3px solid #F59E0B;
-            padding: 5px 10px;
-            font-size: 9.5px;
-            color: #92400E;
-            font-weight: 500;
-            margin-top: 6px;
-            border-radius: 0 4px 4px 0;
-          }
+/* ══ FOOTER ══ */
+.ftr-wrap{margin-top:20px;border-top:3px solid #c0392b;}
+.ftr{background:#1a2332;padding:12px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.ftr-brand{display:flex;align-items:center;gap:10px;}
+.ftr-logo{width:28px;height:28px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,0.3);}
+.ftr-text-main{font-size:10px;font-weight:700;color:#fff;}
+.ftr-text-sub{font-size:8.5px;color:rgba(255,255,255,0.55);margin-top:1px;}
+.ftr-center{text-align:center;}
+.ftr-doc{font-size:9px;color:rgba(255,255,255,0.5);}
+.ftr-right{text-align:right;}
+.ftr-copy{font-size:8.5px;color:rgba(255,255,255,0.4);}
+.ftr-powered{font-size:8px;color:rgba(255,255,255,0.3);margin-top:2px;}
 
-          /* ── CATATAN ── */
-          .catatan-box {
-            border: 1.5px dashed #CBD5E1;
-            border-radius: 8px;
-            padding: 12px 14px;
-            min-height: 80px;
-            background: #FAFAFA;
-          }
-          .catatan-lines {
-            color: #CBD5E1;
-            font-size: 11px;
-            line-height: 2.2;
-            letter-spacing: 1px;
-          }
+/* ══ PRINT ══ */
+@media print{
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .page{max-width:100%;}
+}
+@page{margin:0;size:A4;}
+</style>
+</head>
+<body>
+<div class="page">
 
-          /* ── TANDA TANGAN ── */
-          .sign-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-top: 16px;
-          }
-          .sign-box {
-            text-align: center;
-          }
-          .sign-city {
-            font-size: 10px;
-            color: #6B7280;
-            margin-bottom: 2px;
-          }
-          .sign-role {
-            font-size: 11px;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 52px;
-          }
-          .sign-line {
-            border-top: 1.5px solid #374151;
-            padding-top: 6px;
-          }
-          .sign-name {
-            font-size: 11px;
-            font-weight: 600;
-            color: #1F2937;
-          }
+<!-- ══════════════ HEADER ══════════════ -->
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="hdr-logo-wrap">
+      <img class="hdr-logo" src="${logoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+      <div class="hdr-logo-fallback" style="display:none;">&#127979;</div>
+    </div>
+    <div class="hdr-info">
+      <div class="hdr-org">Bimbel Attin</div>
+      <div class="hdr-tagline">Bimbingan Belajar Profesional &nbsp;&bull;&nbsp; Konsultasi SNBP Terpercaya</div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-doc-box">
+        <div class="hdr-doc-title">No. Dokumen</div>
+        <div class="hdr-doc-no">${docNumber}</div>
+        <div class="hdr-doc-date">${dateStr}</div>
+      </div>
+    </div>
+  </div>
+  <div class="hdr-divider"></div>
+  <div class="hdr-title-band">
+    <div class="hdr-title">Laporan Analisis Peluang SNBP ${year}</div>
+    <div class="hdr-subtitle">Seleksi Nasional Berdasarkan Prestasi &mdash; Hasil Konsultasi Penerimaan PTN</div>
+    <div class="hdr-accent-bar"></div>
+  </div>
+</div>
 
-          /* ── FOOTER ── */
-          .doc-footer {
-            background: #1E3A5F;
-            padding: 10px 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 24px;
-          }
-          .footer-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          .footer-logo {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-            opacity: 0.8;
-          }
-          .footer-text {
-            font-size: 9px;
-            color: rgba(255,255,255,0.75);
-          }
-          .footer-right {
-            font-size: 9px;
-            color: rgba(255,255,255,0.6);
-            text-align: right;
-          }
+<!-- ══════════════ BODY ══════════════ -->
+<div class="body">
 
-          /* ── PRINT ── */
-          @media print {
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .page { max-width: 100%; }
-            .doc-footer { margin-top: 12px; }
-          }
-          @page { margin: 0; size: A4; }
-        </style>
-      </head>
-      <body>
-      <div class="page">
-
-        <!-- ══ HEADER ══ -->
-        <div class="doc-header">
-          <div class="header-brand">
-            <img class="header-logo" src="${logoUrl}" />
-            <div class="header-brand-text">
-              <div class="org-name">BIMBEL ATTIN</div>
-              <div class="org-sub">Bimbingan Belajar Profesional &nbsp;|&nbsp; Konsultasi SNBP</div>
-            </div>
-          </div>
-          <div class="header-badge">
-            <div class="badge-confidential">
-              <div class="conf-label">&#128274; Dokumen Rahasia</div>
-              <div class="conf-no">No: ${docNumber}</div>
-              <div class="conf-no">Tanggal: ${dateStr}</div>
-            </div>
-          </div>
+  <!-- ── DATA SISWA ── -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-bar"></div>
+      <div class="sec-title">Identitas Siswa</div>
+      <div class="sec-line"></div>
+    </div>
+    <div class="stu-card">
+      <div class="stu-row">
+        <div class="stu-cell">
+          <div class="stu-lbl">Nama Lengkap</div>
+          <div class="stu-val">${studentData.nama || '&mdash;'}</div>
         </div>
-
-        <!-- ══ TITLE BANNER ══ -->
-        <div class="title-banner">
-          <h1>Hasil Konsultasi SNBP ${year}</h1>
-          <p>Seleksi Nasional Berdasarkan Prestasi &mdash; Laporan Analisis Peluang Masuk PTN</p>
+        <div class="stu-cell">
+          <div class="stu-lbl">Asal Sekolah</div>
+          <div class="stu-val">${studentData.asalSekolah || '&mdash;'}</div>
         </div>
-
-        <!-- ══ BODY ══ -->
-        <div class="doc-body">
-
-          <!-- Data Siswa -->
-          <div class="section">
-            <div class="section-header">
-              <div class="section-bar"></div>
-              <div class="section-title">Data Siswa</div>
-              <div class="section-line"></div>
-            </div>
-            <div class="student-card">
-              <div class="student-grid">
-                <div class="student-cell">
-                  <div class="cell-label">Nama Lengkap</div>
-                  <div class="cell-value">${studentData.nama || '—'}</div>
-                </div>
-                <div class="student-cell">
-                  <div class="cell-label">Asal Sekolah</div>
-                  <div class="cell-value">${studentData.asalSekolah || '—'}</div>
-                </div>
-                <div class="student-cell">
-                  <div class="cell-label">Jurusan Sekolah</div>
-                  <div class="cell-value">${studentData.jurusanSekolah || '—'}</div>
-                </div>
-                <div class="student-cell">
-                  <div class="cell-label">Akreditasi &amp; Tipe Sekolah</div>
-                  <div class="cell-value">${studentData.akreditasi || '—'} &nbsp;&bull;&nbsp; ${studentData.tipeSekolah || '—'}</div>
-                </div>
-              </div>
-              <div class="student-avg-bar">
-                <div class="avg-label">Rata-rata Nilai Rapor (Semester 1 &ndash; 5)</div>
-                <div class="avg-value">${averageGrade.toFixed(2)}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Prestasi -->
-          ${achievements.length > 0 ? `
-          <div class="section">
-            <div class="section-header">
-              <div class="section-bar"></div>
-              <div class="section-title">Prestasi</div>
-              <div class="section-line"></div>
-            </div>
-            <div style="border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;">
-              <table class="prestasi-table">
-                <thead>
-                  <tr>
-                    <th style="width:30px;">No</th>
-                    <th>Nama Prestasi</th>
-                    <th style="width:90px;">Tingkat</th>
-                    <th style="width:60px;">Juara</th>
-                  </tr>
-                </thead>
-                <tbody>${achievementRows}</tbody>
-              </table>
-            </div>
-          </div>
-          ` : ""}
-
-          <!-- Analisis Peluang -->
-          <div class="section">
-            <div class="section-header">
-              <div class="section-bar"></div>
-              <div class="section-title">Analisis Peluang SNBP</div>
-              <div class="section-line"></div>
-            </div>
-            ${pilihanCards || '<p style="color:#9CA3AF;font-size:11px;">Belum ada pilihan jurusan.</p>'}
-          </div>
-
-          <!-- Catatan -->
-          <div class="section">
-            <div class="section-header">
-              <div class="section-bar"></div>
-              <div class="section-title">Catatan Tim Konsultan</div>
-              <div class="section-line"></div>
-            </div>
-            <div class="catatan-box">
-              <div class="catatan-lines">
-                .................................................................................................................<br/>
-                .................................................................................................................<br/>
-                .................................................................................................................<br/>
-                .................................................................................................................
-              </div>
-            </div>
-          </div>
-
-          <!-- Tanda Tangan -->
-          <div class="sign-grid">
-            <div class="sign-box">
-              <div class="sign-city">............., ${dateStr}</div>
-              <div class="sign-role">Siswa</div>
-              <div class="sign-line">
-                <div class="sign-name">( ${studentData.nama || '......................................'} )</div>
-              </div>
-            </div>
-            <div class="sign-box">
-              <div class="sign-city">............., ${dateStr}</div>
-              <div class="sign-role">Tim Konsultan Bimbel Attin</div>
-              <div class="sign-line">
-                <div class="sign-name">( .......................................... )</div>
-              </div>
-            </div>
-          </div>
-
-        </div><!-- /doc-body -->
-
-        <!-- ══ FOOTER ══ -->
-        <div class="doc-footer">
-          <div class="footer-left">
-            <img class="footer-logo" src="${logoUrl}" />
-            <div class="footer-text">
-              <strong style="color:white;">BIMBEL ATTIN</strong> &nbsp;&mdash;&nbsp; Aplikasi Konsultasi SNBP
-            </div>
-          </div>
-          <div class="footer-right">
-            ${docNumber} &nbsp;&bull;&nbsp; ${dateStr}
-          </div>
+      </div>
+      <div class="stu-row">
+        <div class="stu-cell">
+          <div class="stu-lbl">Jurusan di Sekolah</div>
+          <div class="stu-val">${studentData.jurusanSekolah || '&mdash;'}</div>
         </div>
+        <div class="stu-cell">
+          <div class="stu-lbl">Akreditasi Sekolah</div>
+          <div class="stu-val">${studentData.akreditasi || '&mdash;'} &nbsp;&bull;&nbsp; ${studentData.tipeSekolah || '&mdash;'}</div>
+        </div>
+      </div>
+      <div class="avg-strip">
+        <div>
+          <div class="avg-lbl">Rata-rata Nilai Rapor Semester 1 &ndash; 5</div>
+          <div class="avg-unit">Skala 0 &ndash; 100</div>
+        </div>
+        <div class="avg-num">${averageGrade.toFixed(2)}</div>
+      </div>
+    </div>
+  </div>
 
-      </div><!-- /page -->
-      </body>
-      </html>
-    `;
+  <!-- ── PRESTASI ── -->
+  ${achievements.length > 0 ? `
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-bar"></div>
+      <div class="sec-title">Prestasi Akademik &amp; Non-Akademik</div>
+      <div class="sec-line"></div>
+    </div>
+    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+      <table class="ptab">
+        <thead>
+          <tr>
+            <th style="width:28px;">No</th>
+            <th>Nama Prestasi / Kejuaraan</th>
+            <th style="width:100px;text-align:center;">Tingkat</th>
+            <th style="width:65px;text-align:center;">Juara</th>
+          </tr>
+        </thead>
+        <tbody>${achievementRows}</tbody>
+      </table>
+    </div>
+  </div>
+  ` : ""}
+
+  <!-- ── ANALISIS PELUANG ── -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-bar"></div>
+      <div class="sec-title">Analisis Peluang Penerimaan SNBP</div>
+      <div class="sec-line"></div>
+    </div>
+    ${pilihanCards || '<p style="color:#9ca3af;font-size:11px;padding:12px 0;">Belum ada pilihan jurusan yang dianalisis.</p>'}
+  </div>
+
+  <!-- ── CATATAN ── -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-bar"></div>
+      <div class="sec-title">Catatan &amp; Rekomendasi Tim Konsultan</div>
+      <div class="sec-line"></div>
+    </div>
+    <div class="catatan">
+      <div class="catatan-line"></div>
+      <div class="catatan-line"></div>
+      <div class="catatan-line"></div>
+      <div class="catatan-line"></div>
+    </div>
+  </div>
+
+  <!-- ── TANDA TANGAN ── -->
+  <div class="ttd-grid">
+    <div class="ttd-box">
+      <div class="ttd-city">............., ${dateStr}</div>
+      <div class="ttd-role">Siswa / Wali Murid</div>
+      <div class="ttd-line">
+        <div class="ttd-name">( ${studentData.nama || '....................................'} )</div>
+      </div>
+    </div>
+    <div class="ttd-box">
+      <div class="ttd-city">............., ${dateStr}</div>
+      <div class="ttd-role">Tim Konsultan SNBP Bimbel Attin</div>
+      <div class="ttd-line">
+        <div class="ttd-name">( ................................................ )</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /body -->
+
+<!-- ══════════════ FOOTER ══════════════ -->
+<div class="ftr-wrap">
+  <div class="ftr">
+    <div class="ftr-brand">
+      <img class="ftr-logo" src="${logoUrl}" onerror="this.style.display='none';" />
+      <div>
+        <div class="ftr-text-main">Bimbel Attin</div>
+        <div class="ftr-text-sub">Bimbingan Belajar &amp; Konsultasi SNBP Terpercaya</div>
+      </div>
+    </div>
+    <div class="ftr-center">
+      <div class="ftr-doc">${docNumber}</div>
+      <div class="ftr-doc" style="margin-top:2px;">${dateStr}</div>
+    </div>
+    <div class="ftr-right">
+      <div class="ftr-copy">&copy; ${year} Bimbel Attin</div>
+      <div class="ftr-powered">Dokumen Rahasia &mdash; Hanya untuk Internal</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /page -->
+</body>
+</html>`;
   };
 
   const handlePrint = async () => {
