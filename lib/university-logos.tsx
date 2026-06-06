@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useMemo, ReactNode } from "react";
 
 const LOGO_MAP: Record<string, string> = {
+  // ── INSTITUT ──
   "Institut Pertanian Bogor": "https://iili.io/fmzRolt.png",
   "Institut Teknologi Bacharuddin Jusuf Habibie": "https://iili.io/fmfJy74.png",
   "Institut Teknologi Bandung": "https://iili.io/fmfFTj2.png",
@@ -9,10 +10,18 @@ const LOGO_MAP: Record<string, string> = {
   "Institut Teknologi Sumatera": "https://iili.io/fmzj8P9.png",
   "ISBI Aceh": "https://iili.io/fmzk8YX.png",
   "ISBI Bandung": "https://iili.io/fmzgzOX.png",
+  "ISI Denpasar": "https://iili.io/fmzif8Q.png",
   "ISI-Denpasar": "https://iili.io/fmzif8Q.png",
+  "ISI PadangPanjang": "https://iili.io/fmztcCP.png",
   "ISI-PadangPanjang": "https://iili.io/fmztcCP.png",
+  "ISI Padang Panjang": "https://iili.io/fmztcCP.png",
+  "ISI Surakarta": "https://iili.io/fmzmpAG.png",
   "ISI-Surakarta": "https://iili.io/fmzmpAG.png",
+  "ISI Yogyakarta": "https://iili.io/fmI9rAu.png",
   "ISI-Yogjakarta": "https://iili.io/fmI9rAu.png",
+  "ISI Yogjakarta": "https://iili.io/fmI9rAu.png",
+
+  // ── POLITEKNIK ──
   "Politeknik Elektronika Negeri Surabaya": "https://iili.io/fmI2Xg2.png",
   "Politeknik Manufaktur Bandung": "https://iili.io/fmIqePs.png",
   "Politeknik Manufaktur Negeri Bangka Belitung": "https://iili.io/fmIu9MN.png",
@@ -35,21 +44,37 @@ const LOGO_MAP: Record<string, string> = {
   "Politeknik Negeri Sriwijaya": "https://iili.io/fmTlAzX.png",
   "Politeknik Perkapalan Negeri Surabaya": "https://iili.io/fmTjRyb.png",
   "Politeknik Pertanian Negeri Payakumbuh": "https://iili.io/fmT87g2.png",
+
+  // ── UIN ──
   "UIN Imam Bonjol Padang": "https://iili.io/fmT4GKG.png",
   "UIN Alauddin Makasar": "https://iili.io/fmTQ9oB.png",
+  "UIN Alauddin Makassar": "https://iili.io/fmTQ9oB.png",
   "UIN Datokarama Palu": "https://iili.io/fmTmaGp.png",
   "UIN Maulana Malik Ibrahim Malang": "https://iili.io/fmuHBOF.png",
+  "UIN Malang": "https://iili.io/fmuHBOF.png",
   "UIN Raden Fatah Palembang": "https://iili.io/fmu3tjt.png",
   "UIN Raden Mas Said Surakarta": "https://iili.io/fmuB75v.png",
   "UIN Sultan Maulana Hasanuddin Banten": "https://iili.io/fmuzRNj.png",
   "UIN Sultan Syarif Kasim Riau": "https://iili.io/fmuRwFV.png",
   "UIN Sulthan Thaha Saifuddin Jambi": "https://iili.io/fmuaJlR.png",
   "UIN Sumatera Utara Medan": "https://iili.io/fmu0vgj.png",
+  "UIN Sumatera Utara": "https://iili.io/fmu0vgj.png",
   "UIN Sunan Ampel Surabaya": "https://iili.io/fmuGfb2.png",
   "UIN Sunan Gunung Djati Bandung": "https://iili.io/fmuXCpj.png",
+  "UIN Sunan Gunung Djati": "https://iili.io/fmuXCpj.png",
   "UIN Sunan kalijaga Yogyakarta": "https://iili.io/fmuOmv9.png",
+  "UIN Sunan Kalijaga Yogyakarta": "https://iili.io/fmuOmv9.png",
+  "UIN Sunan Kalijaga": "https://iili.io/fmuOmv9.png",
   "UIN Syarif Hidayatullah Jakarta": "https://iili.io/fmuPCfn.png",
+  "UIN Syarif Hidayatullah": "https://iili.io/fmuPCfn.png",
   "UIN Walisong Semarang": "https://iili.io/fmusNHJ.png",
+  "UIN Walisongo Semarang": "https://iili.io/fmusNHJ.png",
+  "UIN Walisongo": "https://iili.io/fmusNHJ.png",
+  "UIN Antasari Banjarmasin": "https://iili.io/fmuHBOF.png",
+  "UIN Ar-Raniry Banda Aceh": "https://iili.io/fmRCQwv.png",
+  "UIN Mataram": "https://iili.io/fmRre5v.png",
+
+  // ── UNIVERSITAS A–G ──
   "Universitas Airlangga": "https://iili.io/fmuQwjR.png",
   "Universitas Andalas": "https://iili.io/fmuD321.png",
   "Universitas Bangka Belitung": "https://iili.io/fmub8xf.png",
@@ -57,13 +82,18 @@ const LOGO_MAP: Record<string, string> = {
   "Universitas Borneo Tarakan": "https://iili.io/fmAqk2s.png",
   "Universitas Brawijaya": "https://iili.io/fmAuO4p.png",
   "Universitas Cendrawasih": "https://iili.io/fmAQFHu.png",
+  "Universitas Cenderawasih": "https://iili.io/fmAQFHu.png",
   "Universitas Diponegoro": "https://iili.io/fmAD9Pp.png",
   "Universitas Gadjah Mada": "https://iili.io/fmAplsf.png",
   "Universitas Gajah Mada": "https://iili.io/fmAplsf.png",
+
+  // ── UNIVERSITAS H–L ──
   "Universitas Halu Oleo": "https://iili.io/fmR9vHB.png",
+  "Universitas Haluoleo": "https://iili.io/fmR9vHB.png",
   "Universitas Hasanuddin": "https://iili.io/fmRFvHv.png",
   "Universitas Indonesia": "https://iili.io/fmRqcKX.png",
   "Universitas Islam Negeri Ar-Raniry": "https://iili.io/fmRCQwv.png",
+  "Universitas Islam Negeri Ar Raniry": "https://iili.io/fmRCQwv.png",
   "Universitas Jambi": "https://iili.io/fmRzllS.png",
   "Universitas Jember": "https://iili.io/fmRR6cQ.png",
   "Universitas Jendral Soedirman": "https://iili.io/fmRYHuI.png",
@@ -71,6 +101,8 @@ const LOGO_MAP: Record<string, string> = {
   "Universitas Khairun": "https://iili.io/fmRcCIS.png",
   "Universitas Lambung Mangkurat": "https://iili.io/fmR1lQS.png",
   "Universitas Lampung": "https://iili.io/fmRM867.png",
+
+  // ── UNIVERSITAS M–N ──
   "Universitas Malikussaleh": "https://iili.io/fmROOEx.png",
   "Universitas Maritim Raja Ali Haji": "https://iili.io/fmRUqXt.png",
   "Universitas Mataram": "https://iili.io/fmRre5v.png",
@@ -88,20 +120,32 @@ const LOGO_MAP: Record<string, string> = {
   "Universitas Negeri Yogyakarta": "https://iili.io/fm554ne.png",
   "Universitas Nusa Cendana": "https://iili.io/fm5cTla.png",
   "Universitas Nusa Cenda": "https://iili.io/fm5cTla.png",
+
+  // ── UNIVERSITAS P ──
   "Universitas Padjadjaran": "https://iili.io/fm5MNzx.png",
   "Universitas Padjajaran": "https://iili.io/fm5MNzx.png",
+  "Universitas Padjadjaran Bandung": "https://iili.io/fm5MNzx.png",
   "Universitas Palangkaraya": "https://iili.io/fm5kkuI.png",
   "Universitas Palangka Raya": "https://iili.io/fm5kkuI.png",
   "Universitas Papua": "https://iili.io/fm5SEjS.png",
   "Universitas Pattimura": "https://iili.io/fm5gRdG.png",
   "Universitas Pembangunan Nasional Veteran Jawa Timur": "https://iili.io/fm5izUF.png",
   "Universitas Pembangunan Veteran Jawa timur": "https://iili.io/fm5izUF.png",
+  "Universitas Pembangunan Nasional Veteran Jatim": "https://iili.io/fm5izUF.png",
+  "UPN Veteran Jawa Timur": "https://iili.io/fm5izUF.png",
+  "UPN Jawa Timur": "https://iili.io/fm5izUF.png",
   "Universitas Pembangunan Nasional Veteran Jakarta": "https://iili.io/fm5Z21V.png",
   "Universitas Pembangunan Veteran Jakarta": "https://iili.io/fm5Z21V.png",
+  "UPN Veteran Jakarta": "https://iili.io/fm5Z21V.png",
+  "UPN Jakarta": "https://iili.io/fm5Z21V.png",
   "Universitas Pembangunan Nasional Veteran Yogyakarta": "https://iili.io/fm5bjpt.png",
   "Universitas Pembangunan Veteran yogyakarta": "https://iili.io/fm5bjpt.png",
+  "UPN Veteran Yogyakarta": "https://iili.io/fm5bjpt.png",
+  "UPN Yogyakarta": "https://iili.io/fm5bjpt.png",
   "Universitas Pendidikan Ganesha": "https://iili.io/fm5ytGs.png",
   "Universitas Pendidikan Indonesia": "https://iili.io/fm7dnSf.png",
+
+  // ── UNIVERSITAS R–S ──
   "Universitas Riau": "https://iili.io/fm73HQI.png",
   "Universitas Sam Ratulangi": "https://iili.io/fm7KDYu.png",
   "Universitas Samudra": "https://iili.io/fm7zbzg.png",
@@ -116,6 +160,8 @@ const LOGO_MAP: Record<string, string> = {
   "Universitas Sumatera Utara": "https://iili.io/fm7t51R.png",
   "Universitas Syiah Kuala": "https://iili.io/fm7mWBa.png",
   "Universitas Syah Kuala": "https://iili.io/fm7mWBa.png",
+
+  // ── UNIVERSITAS T–Z ──
   "Universitas Tadulako": "https://iili.io/fmY9epV.png",
   "Universitas Tanjungpura": "https://iili.io/fmYdP3u.png",
   "Universitas Teuku Umar": "https://iili.io/fmYf3lt.png",
@@ -125,7 +171,8 @@ const LOGO_MAP: Record<string, string> = {
   "Universitas Trunojoyo Madura": "https://iili.io/fmYzNaV.png",
   "Universitas Trunojoyo": "https://iili.io/fmYzNaV.png",
   "Universitas Udayana": "https://iili.io/fmYuITP.png",
-  // Alias umum
+
+  // ── ALIAS SINGKAT ──
   "IPB": "https://iili.io/fmzRolt.png",
   "IPB University": "https://iili.io/fmzRolt.png",
   "ITB": "https://iili.io/fmfFTj2.png",
@@ -170,12 +217,89 @@ const LOGO_MAP: Record<string, string> = {
   "UNCEN": "https://iili.io/fmAQFHu.png",
   "UNIMA": "https://iili.io/fm5Fodb.png",
   "UNSOED": "https://iili.io/fmRYHuI.png",
+  "UNTIRTA": "https://iili.io/fm7sPDb.png",
+  "UNTIDAR": "https://iili.io/fmYBjov.png",
+  "UNSULBAR": "https://iili.io/fm76UUF.png",
+  "UNKHAIR": "https://iili.io/fmRcCIS.png",
+  "UNIDAR": "https://iili.io/fmYnlv1.png",
+  "POLNES": "https://iili.io/fmI2Xg2.png",
+  "PENS": "https://iili.io/fmI2Xg2.png",
+  "PPNS": "https://iili.io/fmTjRyb.png",
+  "POLSRI": "https://iili.io/fmTlAzX.png",
 };
 
+// ── Normalisasi teks untuk pencocokan fuzzy ──
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(universitas|institut|politeknik|negeri|swasta|the|of|dan|dan)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// ── Hitung skor kesamaan kata ──
+function wordOverlapScore(a: string, b: string): number {
+  const wordsA = normalize(a).split(" ").filter((w) => w.length > 2);
+  const wordsB = normalize(b).split(" ").filter((w) => w.length > 2);
+  if (!wordsA.length || !wordsB.length) return 0;
+  const setB = new Set(wordsB);
+  const matches = wordsA.filter((w) => setB.has(w)).length;
+  return matches / Math.max(wordsA.length, wordsB.length);
+}
+
+// ── Pre-build lowercase index ──
 const LOGO_MAP_LOWER: Record<string, string> = {};
+const LOGO_MAP_NORM: Record<string, string> = {};
 Object.entries(LOGO_MAP).forEach(([key, value]) => {
   LOGO_MAP_LOWER[key.toLowerCase()] = value;
+  LOGO_MAP_NORM[normalize(key)] = value;
 });
+
+function findLogo(name: string): string | null {
+  if (!name || name.trim().length < 2) return null;
+
+  // 1. Exact match
+  if (LOGO_MAP[name]) return LOGO_MAP[name];
+
+  // 2. Lowercase exact match
+  const lower = name.toLowerCase().trim();
+  if (LOGO_MAP_LOWER[lower]) return LOGO_MAP_LOWER[lower];
+
+  // 3. Normalized exact match
+  const norm = normalize(name);
+  if (LOGO_MAP_NORM[norm]) return LOGO_MAP_NORM[norm];
+
+  // 4. Substring match — only for keys longer than 5 chars to avoid false positives
+  for (const [key, url] of Object.entries(LOGO_MAP_LOWER)) {
+    if (key.length < 6) continue;
+    if (lower.includes(key) || (key.length > lower.length && key.includes(lower))) {
+      return url;
+    }
+  }
+
+  // 5. Normalized substring match
+  for (const [key, url] of Object.entries(LOGO_MAP_NORM)) {
+    if (key.length < 5) continue;
+    if (norm.includes(key) || key.includes(norm)) {
+      return url;
+    }
+  }
+
+  // 6. Word overlap scoring (≥ 65% overlap)
+  let bestScore = 0;
+  let bestUrl: string | null = null;
+  for (const [key, url] of Object.entries(LOGO_MAP)) {
+    const score = wordOverlapScore(name, key);
+    if (score > bestScore) {
+      bestScore = score;
+      bestUrl = url;
+    }
+  }
+  if (bestScore >= 0.65) return bestUrl;
+
+  return null;
+}
 
 interface LogoContextValue {
   logos: Record<string, string | null>;
@@ -185,29 +309,17 @@ interface LogoContextValue {
 
 const LogoContext = createContext<LogoContextValue | null>(null);
 
-function findLogo(name: string): string | null {
-  if (!name) return null;
-  if (LOGO_MAP[name]) return LOGO_MAP[name];
-  const lower = name.toLowerCase();
-  if (LOGO_MAP_LOWER[lower]) return LOGO_MAP_LOWER[lower];
-  for (const [key, url] of Object.entries(LOGO_MAP_LOWER)) {
-    if (key.includes(lower) || lower.includes(key)) return url;
-  }
-  return null;
-}
-
 export function UniversityLogoProvider({ children }: { children: ReactNode }) {
-  const value = useMemo(() => ({
-    logos: LOGO_MAP,
-    fetchLogos: (_names: string[]) => {},
-    getLogoUrl: (name: string): string | null => findLogo(name),
-  }), []);
-
-  return (
-    <LogoContext.Provider value={value}>
-      {children}
-    </LogoContext.Provider>
+  const value = useMemo(
+    () => ({
+      logos: LOGO_MAP,
+      fetchLogos: (_names: string[]) => {},
+      getLogoUrl: (name: string): string | null => findLogo(name),
+    }),
+    []
   );
+
+  return <LogoContext.Provider value={value}>{children}</LogoContext.Provider>;
 }
 
 export function useUniversityLogos() {
