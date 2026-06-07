@@ -530,32 +530,28 @@ table{border-collapse:collapse;}
 </html>`;
   };
 
-  const loadLogoBase64 = async (): Promise<string> => {
+  const getWebLogoUrl = (): string => {
     try {
-      if (Platform.OS === "web") {
-        const apiUrl = getApiUrl();
-        const res = await fetch(`${apiUrl}api/logo/attin`);
-        if (!res.ok) return "";
-        const blob = await res.blob();
-        return await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => resolve("");
-          reader.readAsDataURL(blob);
+      const apiUrl = getApiUrl();
+      return `${apiUrl}api/logo/attin`;
+    } catch {
+      return "";
+    }
+  };
+
+  const loadLogoBase64Native = async (): Promise<string> => {
+    try {
+      const { Asset } = await import("expo-asset");
+      const FileSystem = await import("expo-file-system");
+      const asset = Asset.fromModule(require("../assets/images/attin-logo.jpg"));
+      await asset.downloadAsync();
+      if (asset.localUri) {
+        const b64 = await (FileSystem as any).readAsStringAsync(asset.localUri, {
+          encoding: "base64",
         });
-      } else {
-        const { Asset } = await import("expo-asset");
-        const FileSystem = await import("expo-file-system/legacy");
-        const asset = Asset.fromModule(require("../assets/images/attin-logo.jpg"));
-        await asset.downloadAsync();
-        if (asset.localUri) {
-          const b64 = await FileSystem.readAsStringAsync(asset.localUri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          return `data:image/jpeg;base64,${b64}`;
-        }
-        return "";
+        return `data:image/jpeg;base64,${b64}`;
       }
+      return "";
     } catch (e) {
       console.warn("Logo load error:", e);
       return "";
@@ -564,26 +560,38 @@ table{border-collapse:collapse;}
 
   const handlePrint = async () => {
     try {
-      const logoDataUrl = await loadLogoBase64();
-      await Print.printAsync({ html: generateHTML(logoDataUrl) });
+      // On web: gunakan URL langsung (sinkron) agar browser tidak memblokir print dialog
+      // On native: konversi ke base64 karena WebView tidak bisa akses URL server
+      let logoSrc = "";
+      if (Platform.OS === "web") {
+        logoSrc = getWebLogoUrl();
+      } else {
+        logoSrc = await loadLogoBase64Native();
+      }
+      await Print.printAsync({ html: generateHTML(logoSrc) });
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {
-      console.error("Print error:", e);
+    } catch (e: any) {
+      Alert.alert("Gagal Print", e?.message || "Terjadi kesalahan saat membuka print.");
     }
   };
 
   const handleExportPDF = async () => {
     try {
-      const logoDataUrl = await loadLogoBase64();
-      const { uri } = await Print.printToFileAsync({ html: generateHTML(logoDataUrl) });
+      let logoSrc = "";
+      if (Platform.OS === "web") {
+        logoSrc = getWebLogoUrl();
+      } else {
+        logoSrc = await loadLogoBase64Native();
+      }
+      const { uri } = await Print.printToFileAsync({ html: generateHTML(logoSrc) });
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri);
       } else if (Platform.OS !== "web") {
         Alert.alert("PDF Tersimpan", `File tersimpan di: ${uri}`);
       }
-    } catch (e) {
-      console.error("Export PDF error:", e);
+    } catch (e: any) {
+      Alert.alert("Gagal Export PDF", e?.message || "Terjadi kesalahan saat export PDF.");
     }
   };
 
