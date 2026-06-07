@@ -92,7 +92,7 @@ export default function LoginScreen() {
               <Image
                 source={require("../assets/images/attin-logo.jpg")}
                 style={styles.logoImage}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </View>
             <Text style={styles.title}>Konsultasi SNBP</Text>
@@ -185,22 +185,25 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     overflow: "hidden",
     marginBottom: 16,
     borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.5)",
+    borderColor: "rgba(255,255,255,0.6)",
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 12,
   },
   logoImage: {
-    width: 100,
-    height: 100,
+    width: 96,
+    height: 96,
   },
   title: {
     fontSize: 28,
