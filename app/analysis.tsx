@@ -558,18 +558,31 @@ table{border-collapse:collapse;}
     }
   };
 
+  const printOnWeb = (html: string) => {
+    const win = (window as any).open("", "_blank", "width=900,height=700");
+    if (!win) {
+      Alert.alert("Diblokir Browser", "Pop-up diblokir. Izinkan pop-up untuk situs ini lalu coba lagi.");
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+    }, 600);
+  };
+
   const handlePrint = async () => {
     try {
-      // On web: gunakan URL langsung (sinkron) agar browser tidak memblokir print dialog
-      // On native: konversi ke base64 karena WebView tidak bisa akses URL server
-      let logoSrc = "";
+      const logoSrc = Platform.OS === "web" ? getWebLogoUrl() : await loadLogoBase64Native();
+      const html = generateHTML(logoSrc);
       if (Platform.OS === "web") {
-        logoSrc = getWebLogoUrl();
+        printOnWeb(html);
       } else {
-        logoSrc = await loadLogoBase64Native();
+        await Print.printAsync({ html });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      await Print.printAsync({ html: generateHTML(logoSrc) });
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       Alert.alert("Gagal Print", e?.message || "Terjadi kesalahan saat membuka print.");
     }
@@ -577,18 +590,19 @@ table{border-collapse:collapse;}
 
   const handleExportPDF = async () => {
     try {
-      let logoSrc = "";
+      const logoSrc = Platform.OS === "web" ? getWebLogoUrl() : await loadLogoBase64Native();
+      const html = generateHTML(logoSrc);
       if (Platform.OS === "web") {
-        logoSrc = getWebLogoUrl();
+        // Di web, buka print dialog lalu pilih "Simpan sebagai PDF"
+        printOnWeb(html);
       } else {
-        logoSrc = await loadLogoBase64Native();
-      }
-      const { uri } = await Print.printToFileAsync({ html: generateHTML(logoSrc) });
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri);
-      } else if (Platform.OS !== "web") {
-        Alert.alert("PDF Tersimpan", `File tersimpan di: ${uri}`);
+        const { uri } = await Print.printToFileAsync({ html });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri);
+        } else {
+          Alert.alert("PDF Tersimpan", `File tersimpan di: ${uri}`);
+        }
       }
     } catch (e: any) {
       Alert.alert("Gagal Export PDF", e?.message || "Terjadi kesalahan saat export PDF.");
