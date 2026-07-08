@@ -38,26 +38,29 @@ function GlobalHeader() {
     );
   };
 
-  const handleExit = () => {
-    Alert.alert(
-      "Keluar",
-      "Apakah Anda yakin ingin keluar?",
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Keluar",
-          style: "destructive",
-          onPress: async () => {
-            await logout();
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-              window.location.href = '/';
-            } else {
+  const handleExit = async () => {
+    if (Platform.OS === 'web') {
+      const ok = (window as any).confirm("Apakah Anda yakin ingin keluar?");
+      if (!ok) return;
+      await logout();
+      window.location.href = '/';
+    } else {
+      Alert.alert(
+        "Keluar",
+        "Apakah Anda yakin ingin keluar?",
+        [
+          { text: "Batal", style: "cancel" },
+          {
+            text: "Keluar",
+            style: "destructive",
+            onPress: async () => {
+              await logout();
               router.replace("/");
-            }
-          }
-        }
-      ]
-    );
+            },
+          },
+        ]
+      );
+    }
   };
 
   return (

@@ -1,3 +1,16 @@
 [
-  {"id":"admin-1","username":"attin","password":"snbp2026","role":"admin","nama":"Admin Attin"}
+  {
+    "id": "admin-1",
+    "username": "attin",
+    "password": "snbp2026",
+    "role": "admin",
+    "nama": "Admin Attin"
+  },
+  {
+    "username": "wawan",
+    "password": "snbp123",
+    "role": "user",
+    "nama": "wawan iswanto",
+    "id": "e48277b1-8486-4816-8737-f92251b8983a"
+  }
 ]

@@ -87,14 +87,68 @@ async function imageUriToBase64(uri: string, mimeType: string): Promise<string> 
       xhr.send();
     });
   } else {
-    const FileSystem = await import("expo-file-system/legacy");
-    return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const FileSystem = await import("expo-file-system");
+    return (FileSystem as any).readAsStringAsync(uri, { encoding: "base64" });
   }
+}
+
+function markdownToHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code style="background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px;">$1</code>')
+    .replace(/^### (.*?)$/gm, '<h4 style="margin:10px 0 4px;font-size:14px;font-weight:700;">$1</h4>')
+    .replace(/^## (.*?)$/gm, '<h3 style="margin:12px 0 4px;font-size:15px;font-weight:700;">$1</h3>')
+    .replace(/^# (.*?)$/gm, '<h2 style="margin:14px 0 5px;font-size:16px;font-weight:700;">$1</h2>')
+    .replace(/^[-•\*] (.*?)$/gm, '<li style="margin:2px 0;margin-left:14px;">$1</li>')
+    .replace(/^(\d+)\. (.*?)$/gm, '<li style="margin:2px 0;margin-left:14px;list-style-type:decimal;">$2</li>')
+    .replace(/(<li.*<\/li>)/s, '<ul style="padding:0;margin:4px 0;">$1</ul>')
+    .replace(/\n\n/g, '</p><p style="margin:6px 0;">')
+    .replace(/\n/g, '<br>');
+}
+
+function AIMessageWeb({ text }: { text: string }) {
+  const html = markdownToHtml(text);
+  const containerRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    const win = window as any;
+    if (win.MathJax?.typesetPromise && containerRef.current) {
+      win.MathJax.typesetPromise([containerRef.current]).catch(() => {});
+    }
+  });
+
+  return (
+    <div
+      ref={containerRef}
+      dangerouslySetInnerHTML={{ __html: `<p style="margin:0 0 6px;">${html}</p>` }}
+      style={{ fontSize: 14, color: '#1a2332', lineHeight: 1.6, fontFamily: 'Arial, sans-serif' } as any}
+    />
+  );
 }
 
 export default function ConsultationScreen() {
   const insets = useSafeAreaInsets();
   const { studentData, averageGrade, selections, masterData } = useConsultation();
+
+  // Muat MathJax CDN sekali saat komponen pertama kali muncul (web only)
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const win = window as any;
+    if (win.MathJax) return;
+    win.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' },
+      startup: { typeset: false },
+    };
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+    s.async = true;
+    document.head.appendChild(s);
+  }, []);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -277,14 +331,18 @@ export default function ConsultationScreen() {
                 />
               )}
               {msg.content ? (
-                <FormattedText
-                  text={msg.content}
-                  style={[
-                    styles.messageText,
-                    msg.role === "user" ? styles.userText : styles.aiText,
-                    !!msg.imageUri && { marginTop: 6 },
-                  ]}
-                />
+                Platform.OS === 'web' && msg.role === 'assistant' ? (
+                  <AIMessageWeb text={msg.content} />
+                ) : (
+                  <FormattedText
+                    text={msg.content}
+                    style={[
+                      styles.messageText,
+                      msg.role === "user" ? styles.userText : styles.aiText,
+                      !!msg.imageUri && { marginTop: 6 },
+                    ]}
+                  />
+                )
               ) : null}
             </View>
           </View>
