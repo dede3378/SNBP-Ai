@@ -88,7 +88,8 @@ var storage = {
   updateUser(id, updates) {
     const users = readUsers();
     const idx = users.findIndex((u) => u.id === id);
-    if (idx === -1) return null;
+    if (idx === -1)
+      return null;
     users[idx] = { ...users[idx], ...updates };
     writeUsers(users);
     return users[idx];
@@ -96,7 +97,8 @@ var storage = {
   deleteUser(id) {
     const users = readUsers();
     const filtered = users.filter((u) => u.id !== id);
-    if (filtered.length === users.length) return false;
+    if (filtered.length === users.length)
+      return false;
     writeUsers(filtered);
     return true;
   }
@@ -154,11 +156,15 @@ async function registerRoutes(app2) {
     const { id } = req.params;
     const { password, nama, role } = req.body;
     const updates = {};
-    if (password) updates.password = password;
-    if (nama) updates.nama = nama;
-    if (role) updates.role = role;
+    if (password)
+      updates.password = password;
+    if (nama)
+      updates.nama = nama;
+    if (role)
+      updates.role = role;
     const updated = storage.updateUser(id, updates);
-    if (!updated) return res.status(404).json({ error: "User tidak ditemukan" });
+    if (!updated)
+      return res.status(404).json({ error: "User tidak ditemukan" });
     res.json({ id: updated.id, username: updated.username, role: updated.role, nama: updated.nama });
   });
   app2.delete("/api/users/:id", (req, res) => {
@@ -167,7 +173,8 @@ async function registerRoutes(app2) {
       return res.status(403).json({ error: "Admin utama tidak bisa dihapus" });
     }
     const ok = storage.deleteUser(id);
-    if (!ok) return res.status(404).json({ error: "User tidak ditemukan" });
+    if (!ok)
+      return res.status(404).json({ error: "User tidak ditemukan" });
     res.json({ success: true });
   });
   app2.post("/api/chat", async (req, res) => {
@@ -255,7 +262,8 @@ ${selectionDetails}` : ""}${relevantPrograms}
   app2.post("/api/upload-excel", (req, res) => {
     try {
       const { data, filename } = req.body;
-      if (!data) return res.status(400).json({ error: "Data file tidak ditemukan" });
+      if (!data)
+        return res.status(400).json({ error: "Data file tidak ditemukan" });
       let buffer;
       try {
         buffer = Buffer.from(data, "base64");
@@ -392,12 +400,14 @@ ${selectionDetails}` : ""}${relevantPrograms}
         const aliases = COL_ALIASES[key] || [key];
         for (const alias of aliases) {
           const idx = headerCleaned2.indexOf(clean(alias));
-          if (idx !== -1) return headerRow2[idx];
+          if (idx !== -1)
+            return headerRow2[idx];
         }
         const keyWords = aliases.map((a) => clean(a));
         for (let i = 0; i < headerCleaned2.length; i++) {
           const h = headerCleaned2[i];
-          if (!h || h.length < 2) continue;
+          if (!h || h.length < 2)
+            continue;
           if (keyWords.some((kw) => kw.length >= 4 && (h.includes(kw) || kw.includes(h)))) {
             return headerRow2[i];
           }
@@ -419,7 +429,8 @@ ${selectionDetails}` : ""}${relevantPrograms}
       let headerCleaned = [];
       for (let i = 0; i < Math.min(25, rawRows.length); i++) {
         const row = rawRows[i];
-        if (!Array.isArray(row)) continue;
+        if (!Array.isArray(row))
+          continue;
         const rowStr = row.map((v) => String(v ?? "").trim());
         const rowClean = rowStr.map(clean);
         const hitCount = HEADER_SIGNALS.filter((sig) => rowClean.includes(clean(sig))).length;
@@ -431,10 +442,13 @@ ${selectionDetails}` : ""}${relevantPrograms}
         }
       }
       const parseNum = (val) => {
-        if (val === void 0 || val === null || val === "") return 0;
-        if (typeof val === "number") return isNaN(val) ? 0 : val;
+        if (val === void 0 || val === null || val === "")
+          return 0;
+        if (typeof val === "number")
+          return isNaN(val) ? 0 : val;
         let s = String(val).replace(/%/g, "").trim();
-        if (s.includes(",") && !s.includes(".")) s = s.replace(",", ".");
+        if (s.includes(",") && !s.includes("."))
+          s = s.replace(",", ".");
         const n = parseFloat(s.replace(/[^0-9.-]/g, ""));
         return isNaN(n) ? 0 : n;
       };
@@ -443,9 +457,11 @@ ${selectionDetails}` : ""}${relevantPrograms}
       if (headerRowIndex === -1) {
         for (let i = 0; i < rawRows.length; i++) {
           const row = rawRows[i];
-          if (!Array.isArray(row)) continue;
+          if (!Array.isArray(row))
+            continue;
           const programStudi = String(row[0] ?? "").trim();
-          if (!programStudi || programStudi.length < 2) continue;
+          if (!programStudi || programStudi.length < 2)
+            continue;
           parsed.push({
             id: `prodi_${i}_${now}`,
             programStudi,
@@ -474,18 +490,23 @@ ${selectionDetails}` : ""}${relevantPrograms}
           { range: headerRowIndex, defval: "", raw: true }
         );
         const resolveCol = (col, row) => {
-          if (!col) return void 0;
-          if (col in row) return row[col];
-          if (col + "__1" in row) return row[col + "__1"];
+          if (!col)
+            return void 0;
+          if (col in row)
+            return row[col];
+          if (col + "__1" in row)
+            return row[col + "__1"];
           return void 0;
         };
         for (let i = 0; i < dataRows.length; i++) {
           const row = dataRows[i];
           const programStudi = String(resolveCol(colProdi, row) ?? "").trim();
           const universitas = String(resolveCol(colUniv, row) ?? "").trim();
-          if (!programStudi || programStudi.length < 2) continue;
+          if (!programStudi || programStudi.length < 2)
+            continue;
           const cleanProdi = clean(programStudi);
-          if (cleanProdi === "PROGRAMSTUDI" || cleanProdi === "PRODI" || cleanProdi === "NAMAPRODI" || cleanProdi === "JURUSAN") continue;
+          if (cleanProdi === "PROGRAMSTUDI" || cleanProdi === "PRODI" || cleanProdi === "NAMAPRODI" || cleanProdi === "JURUSAN")
+            continue;
           let jurusanSekolah = colJurusan ? String(resolveCol(colJurusan, row) ?? "").trim() : "";
           if (!jurusanSekolah) {
             const prodiUp = programStudi.toUpperCase();
@@ -576,7 +597,8 @@ function setupRequestLogging(app2) {
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
     res.on("finish", () => {
-      if (!path4.startsWith("/api")) return;
+      if (!path4.startsWith("/api"))
+        return;
       const duration = Date.now() - start;
       let logLine = `${req.method} ${path4} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
@@ -662,9 +684,11 @@ function setupMetroProxy(app2) {
       }
     });
     app2.use((req, res, next) => {
-      if (req.path.startsWith("/api")) return next();
+      if (req.path.startsWith("/api"))
+        return next();
       const platform = req.header("expo-platform");
-      if (platform === "ios" || platform === "android") return next();
+      if (platform === "ios" || platform === "android")
+        return next();
       metroProxy(req, res, next);
     });
   }
