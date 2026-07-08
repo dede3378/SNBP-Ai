@@ -158,6 +158,25 @@ function configureExpoAndLanding(app: express.Application) {
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
 
+  // In production, serve the Expo web export (dist/) for browser users
+  if (process.env.NODE_ENV === "production") {
+    const distPath = path.resolve(process.cwd(), "dist");
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      // SPA fallback: serve index.html for all non-API routes so expo-router works
+      app.use((req: Request, res: Response, next: NextFunction) => {
+        if (req.path.startsWith("/api") || req.path.startsWith("/assets")) {
+          return next();
+        }
+        const indexPath = path.join(distPath, "index.html");
+        if (fs.existsSync(indexPath)) {
+          return res.sendFile(indexPath);
+        }
+        next();
+      });
+    }
+  }
+
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
 
