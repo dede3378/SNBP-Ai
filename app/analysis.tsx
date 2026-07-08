@@ -301,24 +301,24 @@ table{border-collapse:collapse;}
 
 <!-- ═══════════════════ HEADER ═══════════════════ -->
 <tr>
-  <td style="background:#8b0000;padding:0;">
+  <td style="background:#0ea5e9;padding:0;">
 
     <!-- Baris logo + nama + nomor dokumen -->
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td width="20" style="background:#8b0000;"></td>
-        <td width="84" valign="middle" style="background:#8b0000;padding:18px 0 14px;">
+        <td width="20" style="background:#0ea5e9;"></td>
+        <td width="84" valign="middle" style="background:#0ea5e9;padding:18px 0 14px;">
           <div style="background:rgba(255,255,255,0.15);border-radius:50%;padding:5px;border:2.5px solid rgba(255,255,255,0.4);display:inline-block;">
             ${logoImg}
           </div>
         </td>
-        <td width="16" style="background:#8b0000;"></td>
-        <td valign="middle" style="background:#8b0000;padding:18px 0 14px;">
+        <td width="16" style="background:#0ea5e9;"></td>
+        <td valign="middle" style="background:#0ea5e9;padding:18px 0 14px;">
           <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:1px;text-transform:uppercase;line-height:1.1;">BIMBEL ATTIN</div>
           <div style="font-size:9.5px;color:rgba(255,255,255,0.75);margin-top:5px;letter-spacing:0.4px;">Bimbingan Belajar Profesional &nbsp;&bull;&nbsp; Konsultasi SNBP Terpercaya</div>
         </td>
-        <td width="16" style="background:#8b0000;"></td>
-        <td width="170" valign="middle" align="right" style="background:#8b0000;padding:18px 20px 14px 0;">
+        <td width="16" style="background:#0ea5e9;"></td>
+        <td width="170" valign="middle" align="right" style="background:#0ea5e9;padding:18px 20px 14px 0;">
           <table cellpadding="0" cellspacing="0" style="border:1.5px solid rgba(255,255,255,0.35);border-radius:8px;background:rgba(255,255,255,0.1);margin-left:auto;">
             <tr><td style="padding:10px 16px;">
               <div style="font-size:8.5px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1.5px;">No. Dokumen</div>
@@ -327,7 +327,7 @@ table{border-collapse:collapse;}
             </td></tr>
           </table>
         </td>
-        <td width="20" style="background:#8b0000;"></td>
+        <td width="20" style="background:#0ea5e9;"></td>
       </tr>
     </table>
 
@@ -339,7 +339,7 @@ table{border-collapse:collapse;}
     <!-- Title band -->
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td align="center" style="background:#8b0000;padding:14px 24px 18px;">
+        <td align="center" style="background:#0ea5e9;padding:14px 24px 18px;">
           <div style="font-size:17px;font-weight:900;color:#fff;letter-spacing:2.5px;text-transform:uppercase;">LAPORAN ANALISIS PELUANG SNBP ${year}</div>
           <div style="font-size:9.5px;color:rgba(255,255,255,0.65);margin-top:5px;letter-spacing:0.5px;">Seleksi Nasional Berdasarkan Prestasi &mdash; Hasil Konsultasi Penerimaan PTN</div>
           <div style="width:200px;height:3px;background:rgba(255,255,255,0.5);border-radius:2px;margin:10px auto 0;"></div>
@@ -361,7 +361,7 @@ table{border-collapse:collapse;}
           <!-- Section header -->
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
             <tr>
-              <td width="5" style="background:#8b0000;border-radius:3px;">&nbsp;</td>
+              <td width="5" style="background:#0ea5e9;border-radius:3px;">&nbsp;</td>
               <td width="8">&nbsp;</td>
               <td style="font-size:10px;font-weight:700;color:#1a2332;text-transform:uppercase;letter-spacing:1.2px;">Identitas Siswa</td>
               <td style="border-bottom:1px solid #e2e8f0;">&nbsp;</td>
@@ -410,7 +410,7 @@ table{border-collapse:collapse;}
       <tr><td>
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
           <tr>
-            <td width="5" style="background:#8b0000;border-radius:3px;">&nbsp;</td>
+            <td width="5" style="background:#0ea5e9;border-radius:3px;">&nbsp;</td>
             <td width="8">&nbsp;</td>
             <td style="font-size:10px;font-weight:700;color:#1a2332;text-transform:uppercase;letter-spacing:1.2px;">Prestasi Akademik &amp; Non-Akademik</td>
             <td style="border-bottom:1px solid #e2e8f0;">&nbsp;</td>
@@ -436,7 +436,7 @@ table{border-collapse:collapse;}
       <tr><td>
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
           <tr>
-            <td width="5" style="background:#8b0000;border-radius:3px;">&nbsp;</td>
+            <td width="5" style="background:#0ea5e9;border-radius:3px;">&nbsp;</td>
             <td width="8">&nbsp;</td>
             <td style="font-size:10px;font-weight:700;color:#1a2332;text-transform:uppercase;letter-spacing:1.2px;">Analisis Peluang Penerimaan SNBP</td>
             <td style="border-bottom:1px solid #e2e8f0;">&nbsp;</td>
@@ -451,7 +451,7 @@ table{border-collapse:collapse;}
       <tr><td>
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
           <tr>
-            <td width="5" style="background:#8b0000;border-radius:3px;">&nbsp;</td>
+            <td width="5" style="background:#0ea5e9;border-radius:3px;">&nbsp;</td>
             <td width="8">&nbsp;</td>
             <td style="font-size:10px;font-weight:700;color:#1a2332;text-transform:uppercase;letter-spacing:1.2px;">Catatan &amp; Rekomendasi Tim Konsultan</td>
             <td style="border-bottom:1px solid #e2e8f0;">&nbsp;</td>
@@ -493,7 +493,7 @@ table{border-collapse:collapse;}
 
 <!-- ═══════════════════ FOOTER ═══════════════════ -->
 <tr>
-  <td style="border-top:3px solid #c0392b;padding:0;">
+  <td style="border-top:3px solid #0284c7;padding:0;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a2332;">
       <tr>
         <td width="20">&nbsp;</td>

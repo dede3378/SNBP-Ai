@@ -10,7 +10,7 @@ import { ConsultationProvider, useConsultation } from "@/lib/consultation-contex
 import { UniversityLogoProvider } from "@/lib/university-logos";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
-import { View, Pressable, Text, StyleSheet, Alert, Platform } from "react-native";
+import { View, Pressable, Text, StyleSheet, Alert, Platform, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
 
@@ -18,24 +18,33 @@ SplashScreen.preventAutoHideAsync();
 
 function GlobalHeader() {
   const { resetConsultation, isLoggedIn, logout, currentUser } = useConsultation();
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 400;
 
   if (!isLoggedIn) return null;
 
   const handleNew = () => {
-    Alert.alert(
-      "Konsultasi Baru",
-      "Semua data yang telah dimasukkan akan dihapus. Lanjutkan?",
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Ya, Mulai Baru",
-          onPress: () => {
-            if (resetConsultation) resetConsultation();
-            router.replace("/student");
-          }
-        }
-      ]
-    );
+    if (Platform.OS === 'web') {
+      const ok = (window as any).confirm("Semua data yang telah dimasukkan akan dihapus. Lanjutkan?");
+      if (!ok) return;
+      if (resetConsultation) resetConsultation();
+      router.replace("/student");
+    } else {
+      Alert.alert(
+        "Konsultasi Baru",
+        "Semua data yang telah dimasukkan akan dihapus. Lanjutkan?",
+        [
+          { text: "Batal", style: "cancel" },
+          {
+            text: "Ya, Mulai Baru",
+            onPress: () => {
+              if (resetConsultation) resetConsultation();
+              router.replace("/student");
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleExit = async () => {
@@ -66,7 +75,7 @@ function GlobalHeader() {
   return (
     <View style={headerStyles.container}>
       <View style={headerStyles.leftGroup}>
-        {currentUser && (
+        {currentUser && !isNarrow && (
           <Text style={headerStyles.userLabel}>
             {currentUser.role === "admin" ? "👤 " : ""}{currentUser.nama || currentUser.username}
           </Text>
@@ -76,16 +85,16 @@ function GlobalHeader() {
         {currentUser?.role === "admin" && (
           <Pressable onPress={() => router.push("/admin")} style={headerStyles.btn}>
             <Ionicons name="people" size={16} color="#C00000" />
-            <Text style={[headerStyles.btnText, { color: "#C00000" }]}>Admin</Text>
+            {!isNarrow && <Text style={[headerStyles.btnText, { color: "#C00000" }]}>Admin</Text>}
           </Pressable>
         )}
         <Pressable onPress={handleNew} style={headerStyles.btn}>
           <Ionicons name="refresh" size={16} color={Colors.primary} />
-          <Text style={headerStyles.btnText}>Baru</Text>
+          {!isNarrow && <Text style={headerStyles.btnText}>Baru</Text>}
         </Pressable>
         <Pressable onPress={handleExit} style={headerStyles.btn}>
           <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
-          <Text style={[headerStyles.btnText, { color: Colors.danger }]}>Exit</Text>
+          {!isNarrow && <Text style={[headerStyles.btnText, { color: Colors.danger }]}>Exit</Text>}
         </Pressable>
       </View>
     </View>
@@ -120,8 +129,8 @@ const headerStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 6,
     backgroundColor: Colors.background,
   },
@@ -133,24 +142,50 @@ const headerStyles = StyleSheet.create({
 });
 
 function RootLayoutNav() {
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 768;
+
   return (
-    <>
-      <GlobalHeader />
-      <Stack screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="dashboard" />
-        <Stack.Screen name="admin" />
-        <Stack.Screen name="upload" />
-        <Stack.Screen name="student" />
-        <Stack.Screen name="grades" />
-        <Stack.Screen name="achievements" />
-        <Stack.Screen name="selection" />
-        <Stack.Screen name="analysis" />
-        <Stack.Screen name="consultation" />
-      </Stack>
-    </>
+    <View style={isDesktop ? layoutStyles.desktopOuter : layoutStyles.mobileOuter}>
+      <View style={isDesktop ? layoutStyles.desktopInner : layoutStyles.mobileInner}>
+        <GlobalHeader />
+        <Stack screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="dashboard" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="upload" />
+          <Stack.Screen name="student" />
+          <Stack.Screen name="grades" />
+          <Stack.Screen name="achievements" />
+          <Stack.Screen name="selection" />
+          <Stack.Screen name="analysis" />
+          <Stack.Screen name="consultation" />
+        </Stack>
+      </View>
+    </View>
   );
 }
+
+const layoutStyles = StyleSheet.create({
+  mobileOuter: { flex: 1 },
+  mobileInner: { flex: 1 },
+  desktopOuter: {
+    flex: 1,
+    backgroundColor: "#e8edf3",
+    alignItems: "center",
+  },
+  desktopInner: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 680,
+    backgroundColor: Colors.white,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+});
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
