@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Replit/package manager caches
+.cache/
+
 # Expo
 .expo/
 dist/
@@ -37,5 +40,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .vercel
+
+# Exported archives should not be committed with the app
+*.zip
 
 .env
