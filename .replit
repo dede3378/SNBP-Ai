@@ -11,6 +11,10 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
+localPort = 5100
+externalPort = 3001
+
+[[ports]]
 localPort = 8081
 externalPort = 8081
 
@@ -23,7 +27,7 @@ PORT = "5000"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["node", "server_dist/index.cjs"]
+run = ["env", "NODE_ENV=production", "node", "server_dist/index.cjs"]
 build = ["bash", "-c", "npx expo export --platform web && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=cjs --outfile=server_dist/index.cjs"]
 
 [workflows]

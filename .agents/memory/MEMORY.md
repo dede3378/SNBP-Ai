@@ -1,0 +1,1 @@
+- [Expo autoscale publishing](expo-autoscale-publishing.md) — production Express serving must explicitly run with NODE_ENV=production so health checks do not hit the Metro proxy.
